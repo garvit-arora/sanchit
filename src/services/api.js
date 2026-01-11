@@ -115,12 +115,8 @@ export const applyForJob = async (jobId, applicationData) => {
 
 // --- REELS (MongoDB) ---
 export const fetchReels = async () => {
-    try {
-        const res = await axios.get(`${API_URL}/reels`);
-        return res.data;
-    } catch (error) {
-        return [];
-    }
+    const res = await axios.get(`${API_URL}/reels`);
+    return res.data;
 };
 
 export const likeReel = async (reelId, userId) => {

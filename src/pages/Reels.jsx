@@ -34,27 +34,43 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
 
-    // SIMPLE AUTOPLAY - play when active, pause otherwise
+    // NUCLEAR AUTOPLAY - play when active, pause otherwise
     useEffect(() => {
         const video = videoRef.current;
         if (!video || !shouldRenderVideo) return;
 
-        if (isActive) {
-            // Give the browser a moment to instantiate the decoder
-            const playTimeout = setTimeout(() => {
-                video.play()
-                    .then(() => setIsPlaying(true))
-                    .catch(() => {
-                        video.muted = true;
-                        video.play().then(() => setIsPlaying(true));
-                    });
-            }, 100);
-            return () => clearTimeout(playTimeout);
-        } else {
-            video.pause();
-            setIsPlaying(false);
-        }
-    }, [isActive, shouldRenderVideo]);
+        const startPlayback = async () => {
+            try {
+                // Ensure muted for best autoplay pass rate
+                video.muted = globalMuted;
+                
+                // Reset and Load
+                if (isActive) {
+                    await video.play();
+                    setIsPlaying(true);
+                } else {
+                    video.pause();
+                    setIsPlaying(false);
+                }
+            } catch (error) {
+                console.error("Autoplay failed, trying muted...", error);
+                try {
+                    video.muted = true;
+                    await video.play();
+                    setIsPlaying(true);
+                } catch (err) {
+                    console.error("Failsafe play failed", err);
+                    setIsPlaying(false);
+                }
+            }
+        };
+
+        startPlayback();
+
+        return () => {
+            if (video) video.pause();
+        };
+    }, [isActive, shouldRenderVideo, globalMuted]);
 
     // Sync mute
     useEffect(() => {
@@ -87,24 +103,6 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
         onSuccess: () => queryClient.invalidateQueries(['reels'])
     });
 
-    const commentMutation = useMutation({
-        mutationFn: async () => {
-            if (!commentText.trim()) return;
-            return await addReelComment(reel._id, commentText, currentUser.displayName, currentUser.uid);
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries(['reels']);
-            setCommentText('');
-        }
-    });
-
-    const handleCommentSubmit = (e) => {
-        e.preventDefault();
-        if (commentText.trim()) {
-            commentMutation.mutate();
-        }
-    };
-
     const handleShare = async () => {
         if (navigator.share) {
             try {
@@ -130,11 +128,13 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
                     {shouldRenderVideo ? (
                         <video
                             ref={videoRef}
+                            key={reel.url}
                             src={reel.url}
                             className="w-full h-full object-cover cursor-pointer"
                             loop
                             playsInline
                             muted={globalMuted}
+                            preload="auto"
                             onClick={togglePlay}
                             onTimeUpdate={handleTimeUpdate}
                         />
@@ -151,11 +151,17 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
                         </div>
                     )}
 
-                    {!isPlaying && shouldRenderVideo && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                            <div className="w-20 h-20 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center">
+                    {!isPlaying && isActive && (
+                        <div 
+                            className="absolute inset-0 flex items-center justify-center bg-black/20 z-10 cursor-pointer"
+                            onClick={togglePlay}
+                        >
+                            <div className="w-20 h-20 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center animate-pulse">
                                 <Play className="text-white fill-white ml-1" size={40} />
                             </div>
+                            <p className="absolute bottom-1/3 text-white text-xs font-bold uppercase tracking-widest opacity-70">
+                                Tap to Play
+                            </p>
                         </div>
                     )}
 
@@ -203,71 +209,21 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
                         <img src={reel.userPhoto || `https://ui-avatars.com/api/?name=${reel.userDisplayName}`} className="w-full h-full object-cover" alt="" />
                     </motion.div>
                 </div>
-
-                {/* Desktop Comments */}
-                {showComments && (
-                    <div className="absolute right-0 top-0 bottom-0 w-[400px] bg-white shadow-2xl flex flex-col z-50">
-                        <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-black">Comments</h3>
-                            <button onClick={() => setShowComments(false)} className="p-2 hover:bg-gray-100 rounded-full">
-                                <X size={20} className="text-black" />
-                            </button>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                            {reel.comments && reel.comments.length > 0 ? (
-                                reel.comments.map((comment, idx) => (
-                                    <div key={idx} className="flex gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                                            {comment.author?.[0]?.toUpperCase()}
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="text-sm text-black">
-                                                <span className="font-semibold mr-2">{comment.author}</span>
-                                                {comment.text}
-                                            </p>
-                                            <span className="text-xs text-gray-500">{new Date(comment.createdAt).toLocaleDateString()}</span>
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                                    <MessageCircle size={48} className="mb-3 opacity-30" />
-                                    <p className="text-sm font-semibold">No comments yet</p>
-                                </div>
-                            )}
-                        </div>
-
-                        <form onSubmit={handleCommentSubmit} className="p-4 border-t border-gray-200 bg-white">
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="text"
-                                    value={commentText}
-                                    onChange={(e) => setCommentText(e.target.value)}
-                                    placeholder="Add a comment..."
-                                    className="flex-1 px-3 py-2 text-sm text-black border border-gray-300 rounded-full outline-none focus:border-black"
-                                />
-                                <EmojiPicker onSelect={(emoji) => setCommentText(prev => prev + emoji)} />
-                                <button type="submit" disabled={!commentText.trim()} className="text-blue-500 font-semibold text-sm disabled:opacity-40 px-4">
-                                    Post
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                )}
             </div>
 
-            {/* Mobile */}
+            {/* Mobile Sidebar */}
             <div className="md:hidden flex flex-col h-full">
                 <div className="relative flex-1 bg-black">
                     {shouldRenderVideo ? (
                         <video
                             ref={videoRef}
+                            key={reel.url}
                             src={reel.url}
                             className="w-full h-full object-cover cursor-pointer"
                             loop
                             playsInline
                             muted={globalMuted}
+                            preload="auto"
                             onClick={togglePlay}
                             onTimeUpdate={handleTimeUpdate}
                         />
@@ -284,11 +240,17 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
                         </div>
                     )}
 
-                    {!isPlaying && shouldRenderVideo && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                            <div className="w-20 h-20 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center">
+                    {!isPlaying && isActive && (
+                        <div 
+                            className="absolute inset-0 flex items-center justify-center bg-black/20 z-10 cursor-pointer"
+                            onClick={togglePlay}
+                        >
+                            <div className="w-20 h-20 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center animate-pulse">
                                 <Play className="text-white fill-white ml-1" size={40} />
                             </div>
+                            <p className="absolute bottom-1/3 text-white text-xs font-bold uppercase tracking-widest opacity-70">
+                                Tap to Play
+                            </p>
                         </div>
                     )}
 
@@ -338,61 +300,6 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
                         </motion.div>
                     </div>
                 </div>
-
-                {/* Mobile Comments */}
-                {showComments && (
-                    <div className="fixed inset-0 bg-white z-[100] flex flex-col">
-                        <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-3 mb-2" />
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-                            <h3 className="text-base font-bold text-black">Comments</h3>
-                            <button onClick={() => setShowComments(false)} className="p-1">
-                                <X size={24} className="text-black" />
-                            </button>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto px-4 py-3 pb-32">
-                            {reel.comments && reel.comments.length > 0 ? (
-                                <div className="space-y-4">
-                                    {reel.comments.map((comment, idx) => (
-                                        <div key={idx} className="flex gap-3">
-                                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                                                {comment.author?.[0]?.toUpperCase()}
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="text-sm text-black">
-                                                    <span className="font-semibold mr-2">{comment.author}</span>
-                                                    {comment.text}
-                                                </p>
-                                                <span className="text-xs text-gray-500 mt-1 block">{new Date(comment.createdAt).toLocaleDateString()}</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                                    <MessageCircle size={48} className="mb-3 opacity-30" />
-                                    <p className="text-sm font-semibold">No comments yet</p>
-                                </div>
-                            )}
-                        </div>
-
-                        <form onSubmit={handleCommentSubmit} className="fixed bottom-0 left-0 right-0 p-4 pb-24 border-t border-gray-200 bg-white">
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="text"
-                                    value={commentText}
-                                    onChange={(e) => setCommentText(e.target.value)}
-                                    placeholder="Add a comment..."
-                                    className="flex-1 px-3 py-2 text-sm text-black border border-gray-300 rounded-full outline-none focus:border-black"
-                                />
-                                <EmojiPicker onSelect={(emoji) => setCommentText(prev => prev + emoji)} />
-                                <button type="submit" disabled={!commentText.trim()} className="text-blue-500 font-semibold text-sm disabled:opacity-40 px-4">
-                                    Post
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                )}
             </div>
         </div>
     );
@@ -432,7 +339,24 @@ export default function Reels() {
         
         if (newIndex !== activeIndex && newIndex >= 0 && newIndex < (reels?.length || 0)) {
             setActiveIndex(newIndex);
-            // Comments stay open but update to new reel - DON'T close
+        }
+    };
+
+    const commentMutation = useMutation({
+        mutationFn: async () => {
+            if (!commentText.trim() || !activeReel) return;
+            return await addReelComment(activeReel._id, commentText, currentUser.displayName, currentUser.uid);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['reels']);
+            setCommentText('');
+        }
+    });
+
+    const handleCommentSubmit = (e) => {
+        e.preventDefault();
+        if (commentText.trim()) {
+            commentMutation.mutate();
         }
     };
 
@@ -486,7 +410,7 @@ export default function Reels() {
                             key={reel._id} 
                             reel={reel} 
                             isActive={index === activeIndex} 
-                            shouldRenderVideo={Math.abs(index - activeIndex) <= 1}
+                            shouldRenderVideo={Math.abs(index - activeIndex) <= 2}
                             currentUser={currentUser} 
                             globalMuted={globalMuted}
                             showComments={showComments}
@@ -509,6 +433,127 @@ export default function Reels() {
 
             <AnimatePresence>
                 {isUploadOpen && <UploadReelModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUpload={handleUpload} />}
+            </AnimatePresence>
+
+            {/* SHARED COMMENTS DRAWER - PEER OF THE SCROLL CONTAINER */}
+            <AnimatePresence>
+                {showComments && activeReel && (
+                    <>
+                        {/* Desktop Shared Drawer */}
+                        <div className="hidden md:block">
+                            <motion.div 
+                                initial={{ x: 400 }} 
+                                animate={{ x: 0 }} 
+                                exit={{ x: 400 }}
+                                className="fixed right-0 top-0 bottom-0 w-[400px] bg-white shadow-2xl flex flex-col z-[100]"
+                            >
+                                <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+                                    <h3 className="text-lg font-bold text-black">Comments</h3>
+                                    <button onClick={() => setShowComments(false)} className="p-2 hover:bg-gray-100 rounded-full text-black">
+                                        <X size={20} />
+                                    </button>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                                    {activeReel.comments?.length > 0 ? (
+                                        activeReel.comments.map((comment, idx) => (
+                                            <div key={idx} className="flex gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                                    {comment.author?.[0]?.toUpperCase()}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-sm text-black">
+                                                        <span className="font-semibold mr-2">{comment.author}</span>
+                                                        {comment.text}
+                                                    </p>
+                                                    <span className="text-xs text-gray-500">{new Date(comment.createdAt).toLocaleDateString()}</span>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                                            <MessageCircle size={48} className="mb-3 opacity-30" />
+                                            <p className="text-sm font-semibold">No comments yet</p>
+                                        </div>
+                                    )}
+                                </div>
+                                <form onSubmit={handleCommentSubmit} className="p-4 border-t border-gray-200 bg-white">
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="text"
+                                            value={commentText}
+                                            onChange={(e) => setCommentText(e.target.value)}
+                                            placeholder="Add a comment..."
+                                            className="flex-1 px-3 py-2 text-sm text-black border border-gray-300 rounded-full outline-none focus:border-black"
+                                        />
+                                        <EmojiPicker onSelect={(emoji) => setCommentText(prev => prev + emoji)} />
+                                        <button type="submit" disabled={!commentText.trim() || commentMutation.isPending} className="text-blue-500 font-semibold text-sm disabled:opacity-40 px-4">
+                                            {commentMutation.isPending ? 'Posting...' : 'Post'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </motion.div>
+                        </div>
+
+                        {/* Mobile Shared Drawer */}
+                        <div className="md:hidden">
+                            <motion.div 
+                                initial={{ y: "100%" }} 
+                                animate={{ y: 0 }} 
+                                exit={{ y: "100%" }}
+                                transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                                className="fixed inset-0 bg-white z-[100] flex flex-col"
+                            >
+                                <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-3 mb-2" />
+                                <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+                                    <h3 className="text-base font-bold text-black">Comments</h3>
+                                    <button onClick={() => setShowComments(false)} className="p-1 text-black">
+                                        <X size={24} />
+                                    </button>
+                                </div>
+                                <div className="flex-1 overflow-y-auto px-4 py-3 pb-32">
+                                    {activeReel.comments?.length > 0 ? (
+                                        <div className="space-y-4">
+                                            {activeReel.comments.map((comment, idx) => (
+                                                <div key={idx} className="flex gap-3">
+                                                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                                        {comment.author?.[0]?.toUpperCase()}
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <p className="text-sm text-black">
+                                                            <span className="font-semibold mr-2">{comment.author}</span>
+                                                            {comment.text}
+                                                        </p>
+                                                        <span className="text-xs text-gray-500 mt-1 block">{new Date(comment.createdAt).toLocaleDateString()}</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                                            <MessageCircle size={48} className="mb-3 opacity-30" />
+                                            <p className="text-sm font-semibold">No comments yet</p>
+                                        </div>
+                                    )}
+                                </div>
+                                <form onSubmit={handleCommentSubmit} className="fixed bottom-0 left-0 right-0 p-4 pb-24 border-t border-gray-200 bg-white">
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="text"
+                                            value={commentText}
+                                            onChange={(e) => setCommentText(e.target.value)}
+                                            placeholder="Add a comment..."
+                                            className="flex-1 px-3 py-2 text-sm text-black border border-gray-300 rounded-full outline-none focus:border-black"
+                                        />
+                                        <EmojiPicker onSelect={(emoji) => setCommentText(prev => prev + emoji)} />
+                                        <button type="submit" disabled={!commentText.trim() || commentMutation.isPending} className="text-blue-500 font-semibold text-sm disabled:opacity-40 px-4">
+                                            {commentMutation.isPending ? 'Posting...' : 'Post'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </motion.div>
+                        </div>
+                    </>
+                )}
             </AnimatePresence>
 
             <style jsx>{`
