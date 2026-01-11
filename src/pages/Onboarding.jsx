@@ -6,8 +6,16 @@ import { ArrowRight, Check, Sparkles, Code, User as UserIcon } from 'lucide-reac
 import axios from 'axios';
 
 export default function Onboarding() {
-    const { currentUser, refreshProfile } = useAuth();
+    const { currentUser, userProfile, refreshProfile } = useAuth();
     const navigate = useNavigate();
+
+    // Auto-redirect out if already onboarded
+    React.useEffect(() => {
+        if (userProfile?.username) {
+            navigate('/feed');
+        }
+    }, [userProfile, navigate]);
+
     const [isLoading, setIsLoading] = useState(false);
     const [data, setData] = useState({
         displayName: currentUser?.displayName || '',

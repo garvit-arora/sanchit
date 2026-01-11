@@ -17,7 +17,7 @@ export default function Login() {
       console.log("Attempting Login..."); // Debug
       await login();
       console.log("Login Successful!"); // Debug
-      navigate('/onboarding');
+      navigate('/feed');
     } catch (error) {
       console.error("Login Failed Code:", error.code);
       console.error("Login Failed Message:", error.message);
