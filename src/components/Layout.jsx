@@ -31,7 +31,7 @@ export default function Layout({ children }) {
             <aside className="hidden md:flex flex-col w-72 h-screen sticky top-0 border-r border-white/10 p-6 bg-background/50 backdrop-blur-xl">
                 <div className="mb-12">
                     <h1 className="text-3xl font-display font-black tracking-tighter text-white">
-                        Local<span className="text-primary">host</span>.
+                        San<span className="text-primary">chit</span>.
                     </h1>
                 </div>
 
@@ -41,9 +41,7 @@ export default function Layout({ children }) {
                     <SidebarLink to="/reels" icon={PlaySquare} label="Reels" />
                     <SidebarLink to="/chat" icon={MessageSquare} label="DMs" />
                     <SidebarLink to="/opportunities" icon={Briefcase} label="Gigs" />
-                    {isAdmin && (
-                        <SidebarLink to="/admin" icon={Shield} label="Admin" />
-                    )}
+                     <SidebarLink to="/admin" icon={Shield} label="Admin" />
                 </nav>
 
                 <div className="mt-auto pt-6 border-t border-white/10">
@@ -57,9 +55,7 @@ export default function Layout({ children }) {
                  <NavLink to="/reels" className={({isActive}) => isActive ? "text-secondary" : "text-gray-500"}><PlaySquare size={26} /></NavLink>
                  <NavLink to="/chat" className={({isActive}) => isActive ? "text-secondary" : "text-gray-500"}><MessageSquare size={26} /></NavLink>
                  <NavLink to="/opportunities" className={({isActive}) => isActive ? "text-secondary" : "text-gray-500"}><Briefcase size={26} /></NavLink>
-                 {isAdmin && (
                       <NavLink to="/admin" className={({isActive}) => isActive ? "text-secondary" : "text-gray-500"}><Shield size={26} /></NavLink>
-                 )}
                  <NavLink to="/profile" className={({isActive}) => isActive ? "text-secondary" : "text-gray-500"}><User size={26} /></NavLink>
             </nav>
 
