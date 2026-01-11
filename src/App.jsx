@@ -15,6 +15,7 @@ import Profile from './pages/Profile';
 import Forum from './pages/Forum';
 import Onboarding from './pages/Onboarding';
 import AdminPanel from './pages/AdminPanel';
+import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient();
 
@@ -41,10 +42,14 @@ export default function App() {
                             <Route path="/opportunities" element={<Opportunities />} />
                             <Route path="/profile" element={<Profile />} />
                             <Route path="/admin" element={<AdminPanel />} />
+                            <Route path="*" element={<NotFound />} />
                         </Routes>
                     </Layout>
                   </AuthGuard>
               } />
+              
+              {/* 404 Catch All */}
+              <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

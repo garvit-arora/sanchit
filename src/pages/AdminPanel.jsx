@@ -153,7 +153,7 @@ export default function AdminPanel() {
                                         </div>
                                     </td>
                                     <td className="p-6">
-                                        {u.isVerified ? (
+                                        {(u.isVerified || u.verified) ? (
                                             <span className="flex items-center gap-1.5 text-green-500 bg-green-500/10 px-3 py-1.5 rounded-full text-xs font-bold ring-1 ring-green-500/20">
                                                 <CheckCircle size={14} /> Verified
                                             </span>

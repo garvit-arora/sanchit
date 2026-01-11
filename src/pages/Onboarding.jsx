@@ -4,8 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ArrowRight, Check, Mail, Code, Sparkles, GraduationCap } from 'lucide-react';
 import axios from 'axios';
-import { updateEmail, sendEmailVerification, verifyBeforeUpdateEmail } from 'firebase/auth';
-import { auth as firebaseAuth } from '../firebase';
 
 const StepOne = ({ data, updateData, onNext }) => (
     <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }} className="space-y-6">
@@ -71,53 +69,59 @@ const StepTwo = ({ data, updateData, onNext, isLoading }) => (
                 <GraduationCap className="text-blue-500" size={40} />
             </div>
             <h2 className="text-3xl font-display font-black text-white">Prove it.</h2>
-            <p className="text-gray-400 mt-2">Enter your college email (.edu.in). We'll send a Firebase verification link.</p>
+            <p className="text-gray-400 mt-2">Enter your college email (.edu.in). We'll send a 6-digit code.</p>
         </div>
 
-        <div className="space-y-4">
-             <div className="bg-surface border border-white/10 rounded-xl p-4 flex items-center gap-3">
-                <Mail className="text-gray-500" />
-                <input 
-                    type="email" 
-                    value={data.collegeEmail} 
-                    onChange={e => updateData({ collegeEmail: e.target.value })}
-                    placeholder="you@college.edu.in"
-                    className="bg-transparent text-white outline-none w-full"
-                />
-            </div>
+        <div className="bg-surface border border-white/10 rounded-xl p-4 flex items-center gap-3">
+            <Mail className="text-gray-500" />
+            <input 
+                type="email" 
+                value={data.collegeEmail} 
+                onChange={e => updateData({ collegeEmail: e.target.value })}
+                placeholder="you@college.edu.in"
+                className="bg-transparent text-white outline-none w-full"
+            />
         </div>
 
         <button 
             onClick={onNext} 
             disabled={isLoading || !data.collegeEmail}
-            className="w-full bg-blue-600 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 transition-colors"
+            className="w-full bg-blue-600 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-blue-500 disabled:opacity-50 transition-colors"
         >
-            {isLoading ? 'Sending Link...' : 'Send Verification Link'}
+            {isLoading ? 'Sending Code...' : 'Send OTP Code'}
         </button>
     </motion.div>
 );
 
-const StepThree = ({ data, onNext, onResend, isLoading }) => (
+const StepThree = ({ data, updateData, onNext, onResend, isLoading }) => (
     <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }} className="space-y-6">
         <div className="text-center mb-8">
             <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/20">
-                <Mail className="text-green-500" size={40} />
+                <Code className="text-green-500" size={40} />
             </div>
             <h2 className="text-3xl font-display font-black text-white">Check Inbox.</h2>
-            <p className="text-gray-400 mt-2">We sent a verification link to <br/><span className="text-white font-bold">{data.collegeEmail}</span></p>
-            <p className="text-xs text-gray-500 mt-4 italic">Click the link in the email, then come back here and click the button below.</p>
+            <p className="text-gray-400 mt-2">Enter the code sent to <br/><span className="text-white font-bold">{data.collegeEmail}</span></p>
         </div>
 
+        <input 
+            type="text" 
+            placeholder="000000"
+            maxLength={6}
+            value={data.otp || ''}
+            onChange={e => updateData({ otp: e.target.value })}
+            className="w-full bg-surface border border-white/10 rounded-xl p-4 text-center text-3xl font-mono text-white tracking-[0.5em] outline-none focus:border-primary"
+        />
+
         <div className="space-y-3">
-            <button onClick={onNext} disabled={isLoading} className="w-full bg-green-500 text-black font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:scale-105 transition-transform disabled:opacity-50">
-                {isLoading ? 'Checking...' : "I've Verified! 🚀"}
-            </button>
-            
             <button 
-                onClick={onResend} 
-                className="w-full text-gray-500 text-sm font-bold hover:text-white transition-colors py-2"
+                onClick={onNext} 
+                disabled={isLoading || data.otp?.length !== 6} 
+                className="w-full bg-green-500 text-black font-black py-4 rounded-xl hover:scale-105 transition-transform disabled:opacity-50"
             >
-                Didn't get an email? Resend
+                {isLoading ? 'Verifying...' : "Verify & Launch 🚀"}
+            </button>
+            <button onClick={onResend} className="w-full text-gray-500 text-sm font-bold hover:text-white transition-colors">
+                Resend Code
             </button>
         </div>
     </motion.div>
@@ -133,68 +137,49 @@ export default function Onboarding() {
         role: 'Student',
         leetcodeUsername: '',
         collegeEmail: '',
+        otp: ''
     });
+
+    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
     const updateData = (newData) => setData(prev => ({ ...prev, ...newData }));
 
-    const handleSendLink = async () => {
+    const handleSendOTP = async () => {
         if (!data.collegeEmail.endsWith('.edu.in')) {
             alert("Please use a valid .edu.in email");
             return;
         }
         setIsLoading(true);
-        console.log("Attempting to send verification link to:", data.collegeEmail);
         try {
-             const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-             await axios.put(`${API_BASE}/auth/profile`, {
-                 uid: currentUser.uid,
-                 displayName: data.displayName,
-                 username: data.username,
-                 role: data.role,
-                 leetcodeUsername: data.leetcodeUsername,
-                 collegeEmail: data.collegeEmail,
-                 isVerified: false
-             });
-
-             await verifyBeforeUpdateEmail(currentUser, data.collegeEmail);
+             await axios.post(`${API_BASE}/auth/send-otp`, { collegeEmail: data.collegeEmail });
              setStep(3);
         } catch (e) {
-            console.error("Firebase Auth Error:", e);
-            if (e.code === 'auth/requires-recent-login') {
-                alert("Security check: Please log out and log back in (Google) to verify your college email.");
-            } else if (e.code === 'auth/too-many-requests') {
-                alert("Too many requests! Please wait a few minutes before resending.");
-            } else {
-                alert("Error: " + e.message);
-            }
+            alert("Error sending code. Tip: Check server logs if it's taking too long.");
+            setStep(3); // Moving anyway for dev testing if they check console
         }
         setIsLoading(false);
     };
 
-    const handleCheckVerification = async () => {
+    const handleVerifyOTP = async () => {
         setIsLoading(true);
         try {
-            await currentUser.reload();
-            const freshUser = firebaseAuth.currentUser;
-            
-            console.log("Current Email in Firebase:", freshUser.email);
-            console.log("Verification Status:", freshUser.emailVerified);
+            await axios.post(`${API_BASE}/auth/verify-otp`, { 
+                email: data.collegeEmail, 
+                otp: data.otp,
+                uid: currentUser.uid 
+            });
 
-            // When using verifyBeforeUpdateEmail, freshUser.emailVerified becomes true 
-            // and freshUser.email changes to the new email ONLY after the link is clicked.
-            if (freshUser.emailVerified && freshUser.email === data.collegeEmail) {
-                const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-                await axios.post(`${API_BASE}/auth/confirm-verification`, { 
-                    uid: currentUser.uid,
-                    collegeEmail: data.collegeEmail
-                });
-                window.location.href = '/feed';
-            } else {
-                alert("Still waiting... 🕒 \n\n1. Check your Spam folder.\n2. Ensure you clicked 'Verify' in the email.");
-            }
+            await axios.put(`${API_BASE}/auth/profile`, {
+                uid: currentUser.uid,
+                displayName: data.displayName,
+                username: data.username,
+                role: data.role,
+                leetcodeUsername: data.leetcodeUsername
+            });
+
+            window.location.href = '/feed';
         } catch (e) {
-            console.error("Check verification error:", e);
-            alert("Check failed: " + e.message);
+            alert("Invalid Code. Please try again.");
         }
         setIsLoading(false);
     };
@@ -202,17 +187,14 @@ export default function Onboarding() {
     return (
         <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
              <div className="absolute top-0 w-full h-1 bg-surface">
-                 <motion.div 
-                    animate={{ width: `${(step/3)*100}%` }} 
-                    className="h-full bg-primary"
-                 />
+                 <motion.div animate={{ width: `${(step/3)*100}%` }} className="h-full bg-primary" />
              </div>
 
              <div className="w-full max-w-md bg-black/50 backdrop-blur-xl border border-white/10 p-8 rounded-3xl relative z-10">
                  <AnimatePresence mode="wait">
                     {step === 1 && <StepOne key="1" data={data} updateData={updateData} onNext={() => setStep(2)} />}
-                    {step === 2 && <StepTwo key="2" data={data} updateData={updateData} onNext={handleSendLink} isLoading={isLoading} />}
-                    {step === 3 && <StepThree key="3" data={data} onNext={handleCheckVerification} onResend={handleSendLink} isLoading={isLoading} />}
+                    {step === 2 && <StepTwo key="2" data={data} updateData={updateData} onNext={handleSendOTP} isLoading={isLoading} />}
+                    {step === 3 && <StepThree key="3" data={data} updateData={updateData} onNext={handleVerifyOTP} onResend={handleSendOTP} isLoading={isLoading} />}
                  </AnimatePresence>
              </div>
         </div>
