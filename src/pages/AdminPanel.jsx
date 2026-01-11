@@ -42,22 +42,6 @@ export default function AdminPanel() {
         u.collegeEmail?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    if (userProfile?.role !== 'Admin') {
-        return (
-            <div className="min-h-[80vh] flex flex-col items-center justify-center space-y-4">
-                <Shield size={64} className="text-red-500 opacity-20" />
-                <h1 className="text-4xl font-black text-white">ACCESS DENIED</h1>
-                <p className="text-gray-500">Only Admins can enter the Control Room.</p>
-                <button 
-                    onClick={() => window.location.href = '/feed'}
-                    className="bg-white text-black px-6 py-2 rounded-xl font-bold"
-                >
-                    Back to Feed
-                </button>
-            </div>
-        );
-    }
-
     return (
         <div className="pt-4 pb-20 max-w-7xl mx-auto px-4">
             <header className="mb-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">

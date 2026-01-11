@@ -18,10 +18,12 @@ const SidebarLink = ({ to, icon: Icon, label }) => {
 
 export default function Layout({ children }) {
     const location = useLocation();
-    const { userProfile } = useAuth();
+    const { userProfile, currentUser } = useAuth();
     const isLanding = location.pathname === '/';
 
     if (isLanding) return <>{children}</>;
+
+    const isAdmin = userProfile?.role === 'Admin' || currentUser?.email === 'garvit.university@gmail.com';
 
     return (
         <div className="min-h-screen bg-background text-text flex">
@@ -39,7 +41,7 @@ export default function Layout({ children }) {
                     <SidebarLink to="/reels" icon={PlaySquare} label="Reels" />
                     <SidebarLink to="/chat" icon={MessageSquare} label="DMs" />
                     <SidebarLink to="/opportunities" icon={Briefcase} label="Gigs" />
-                    {userProfile?.role === 'Admin' && (
+                    {isAdmin && (
                         <SidebarLink to="/admin" icon={Shield} label="Admin" />
                     )}
                 </nav>
@@ -55,7 +57,7 @@ export default function Layout({ children }) {
                  <NavLink to="/reels" className={({isActive}) => isActive ? "text-secondary" : "text-gray-500"}><PlaySquare size={26} /></NavLink>
                  <NavLink to="/chat" className={({isActive}) => isActive ? "text-secondary" : "text-gray-500"}><MessageSquare size={26} /></NavLink>
                  <NavLink to="/opportunities" className={({isActive}) => isActive ? "text-secondary" : "text-gray-500"}><Briefcase size={26} /></NavLink>
-                 {userProfile?.role === 'Admin' && (
+                 {isAdmin && (
                       <NavLink to="/admin" className={({isActive}) => isActive ? "text-secondary" : "text-gray-500"}><Shield size={26} /></NavLink>
                  )}
                  <NavLink to="/profile" className={({isActive}) => isActive ? "text-secondary" : "text-gray-500"}><User size={26} /></NavLink>

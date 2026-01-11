@@ -15,9 +15,19 @@ import Profile from './pages/Profile';
 import Forum from './pages/Forum';
 import Onboarding from './pages/Onboarding';
 import AdminPanel from './pages/AdminPanel';
+import AdminLogin from './pages/AdminLogin';
 import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient();
+
+// Helper to check for Hardcoded Admin Access
+const AdminGuard = ({ children }) => {
+    const adminToken = localStorage.getItem('admin_token');
+    if (adminToken === 'grid_master_access_granted') {
+        return children;
+    }
+    return <AdminLogin />;
+};
 
 export default function App() {
   return (
@@ -41,7 +51,7 @@ export default function App() {
                             <Route path="/chat" element={<Chat />} />
                             <Route path="/opportunities" element={<Opportunities />} />
                             <Route path="/profile" element={<Profile />} />
-                            <Route path="/admin" element={<AdminPanel />} />
+                            <Route path="/admin" element={<AdminGuard><AdminPanel /></AdminGuard>} />
                             <Route path="*" element={<NotFound />} />
                         </Routes>
                     </Layout>
