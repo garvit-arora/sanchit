@@ -127,8 +127,8 @@ export default function Landing() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <FeatureCard 
                         icon={Shield} 
-                        title="Verified Only" 
-                        desc="No bots. No randoms. Only verified students with .edu.in emails can join the core network." 
+                        title="Community Only" 
+                        desc="No bots. No randoms. Join the exclusive network of engineers and coders." 
                     />
                     <FeatureCard 
                         icon={Globe} 
@@ -150,8 +150,8 @@ export default function Landing() {
                         <div>
                              <h2 className="text-4xl md:text-6xl font-display font-black text-white mb-12">How to Enter the System</h2>
                              <Step num="01" title="Sign Up" desc="Login with Google. Fast, secure, and easy." />
-                             <Step num="02" title="Verify Identity" desc="Enter your college .edu.in email. We send you a secret code." />
-                             <Step num="03" title="Claim Profile" desc="Set your alias. Sync your coding stats. Start climbing." />
+                             <Step num="02" title="Claim Profile" desc="Set your alias. Sync your coding stats. Start climbing." />
+                             <Step num="03" title="Start Coding" desc="Connect with peers and skip the boring stuff." />
                         </div>
                         <div className="relative">
                             <div className="absolute inset-0 bg-gradient-to-tr from-primary to-secondary rounded-full blur-[100px] opacity-20" />

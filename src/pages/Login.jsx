@@ -62,7 +62,7 @@ export default function Login() {
 
         <div className="mt-8 flex items-center justify-center gap-2 text-xs text-gray-500 font-mono">
             <ShieldCheck size={14} />
-            <span>VERIFIED STUDENTS ONLY</span>
+            <span>ENGINEERS ONLY</span>
         </div>
       </motion.div>
 

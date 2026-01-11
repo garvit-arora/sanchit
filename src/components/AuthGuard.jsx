@@ -22,10 +22,8 @@ export default function AuthGuard({ children }) {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    // Strict Verification Gate
-    // If user is logged in but NOT verified, FORCE them to /onboarding
-    // Except if they are already on /onboarding to avoid loop
-    if (currentUser && !userProfile?.isVerified && location.pathname !== '/onboarding') {
+    // Gate: Ensure user has completed basic profile setup (username)
+    if (currentUser && !userProfile?.username && location.pathname !== '/onboarding') {
         return <Navigate to="/onboarding" replace />;
     }
 
