@@ -49,7 +49,7 @@ export default function AdminPanel() {
                     <h1 className="text-5xl font-display font-black text-white mb-2 flex items-center gap-4">
                         Control Room <Shield className="text-primary" size={32} />
                     </h1>
-                    <p className="text-gray-400 text-xl font-medium">Manage the citizens of Localhost.</p>
+                    <p className="text-gray-400 text-xl font-medium">Manage the citizens of Sanchit.</p>
                 </div>
 
                 <div className="flex gap-4 w-full md:w-auto">

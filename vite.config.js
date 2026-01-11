@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'Localhost',
-        short_name: 'Localhost',
+        name: 'Sanchit',
+        short_name: 'Sanchit',
         description: 'Connect, Compete, Collaborate',
         theme_color: '#ffffff',
         icons: [

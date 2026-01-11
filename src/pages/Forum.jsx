@@ -147,7 +147,7 @@ export default function Forum() {
              <div className="space-y-4">
                 {/* Fake Pinned Post */}
                 <ForumPost post={{
-                    title: "Welcome to Localhost Forum! Read the rules before posting.",
+                    title: "Welcome to Sanchit Forum! Read the rules before posting.",
                     content: "1. No toxicity. 2. No spam. 3. Be cool. This is a safe space for engineers to rant, discuss, and build.",
                     author: "Mod Team",
                     upvotes: [],

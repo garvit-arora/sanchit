@@ -73,7 +73,7 @@ export default function AdminLogin() {
             </motion.div>
 
             <div className="mt-8 flex items-center gap-2 text-gray-700 font-mono text-xs uppercase tracking-[0.2em]">
-                <Zap size={14} /> Localhost Security Protocol V2
+                <Zap size={14} /> Sanchit Security Protocol V2
             </div>
         </div>
     );
