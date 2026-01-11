@@ -14,6 +14,7 @@ import Reels from './pages/Reels';
 import Profile from './pages/Profile';
 import Forum from './pages/Forum';
 import Onboarding from './pages/Onboarding';
+import AdminPanel from './pages/AdminPanel';
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ export default function App() {
                             <Route path="/chat" element={<Chat />} />
                             <Route path="/opportunities" element={<Opportunities />} />
                             <Route path="/profile" element={<Profile />} />
+                            <Route path="/admin" element={<AdminPanel />} />
                         </Routes>
                     </Layout>
                   </AuthGuard>
