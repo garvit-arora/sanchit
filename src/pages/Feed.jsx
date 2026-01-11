@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchFeed, likePost, addComment } from '../services/api'; // Updated imports
 import { motion, AnimatePresence } from 'framer-motion';
-import { Flame, Meh, MoreHorizontal, BadgeCheck, Loader2, MessageCircle, Send } from 'lucide-react';
+import { Flame, Meh, MoreHorizontal, BadgeCheck, Loader2, MessageCircle, Send, Music2, Trash2, ShieldAlert, PlayCircle, ArrowUp } from 'lucide-react';
+import { fetchFeed, likePost, addComment, deletePost, reportPost } from '../services/api';
 import CreatePostModal from '../components/CreatePostModal';
 import { Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -52,7 +52,36 @@ const PostCard = ({ post }) => {
                         <p className="text-gray-500 text-sm font-medium">Just now • Campus</p>
                     </div>
                 </div>
-                <button className="text-gray-500 hover:text-white"><MoreHorizontal /></button>
+                
+                <div className="relative group/menu">
+                    <button className="text-gray-500 hover:text-white p-2 rounded-full hover:bg-white/5 transition-colors"><MoreHorizontal /></button>
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-surface border border-white/10 rounded-2xl shadow-2xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-20 overflow-hidden">
+                        {post.authorId === currentUser?.uid ? (
+                            <button 
+                                onClick={() => {
+                                    if(window.confirm("Delete this masterpiece?")) {
+                                        deletePost(post._id).then(() => queryClient.invalidateQueries(['feed']));
+                                    }
+                                }}
+                                className="w-full px-4 py-3 text-left text-red-500 hover:bg-red-500/10 flex items-center gap-2 font-bold transition-colors"
+                            >
+                                <Trash2 size={18} /> Delete Post
+                            </button>
+                        ) : (
+                            <button 
+                                onClick={() => {
+                                    const reason = window.prompt("Why are you reporting this?");
+                                    if(reason) {
+                                        reportPost(post._id, currentUser.uid, reason).then(() => alert("Reported to mods."));
+                                    }
+                                }}
+                                className="w-full px-4 py-3 text-left text-gray-400 hover:bg-white/5 flex items-center gap-2 font-bold transition-colors"
+                            >
+                                <ShieldAlert size={18} /> Report Post
+                            </button>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* Content */}
@@ -60,10 +89,34 @@ const PostCard = ({ post }) => {
                 <p className="text-gray-200 text-lg leading-relaxed whitespace-pre-wrap">{post.content}</p>
             </div>
 
-            {/* Image (if any) */}
-            {post.image && (
+            {/* Image/Video Content */}
+            {post.video ? (
+                <div className="w-full aspect-video bg-black relative group/video">
+                    <video 
+                        src={post.video} 
+                        className="w-full h-full object-contain"
+                        controls
+                        playsInline
+                    />
+                </div>
+            ) : post.image && (
                 <div className="w-full max-h-[500px] bg-gray-900 relative">
                      <img src={post.image} alt="Post" className="w-full h-full object-contain" />
+                </div>
+            )}
+
+            {/* Song Badge */}
+            {post.song && (post.song.title || post.song.artist) && (
+                <div className="px-5 py-3">
+                    <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl p-3 w-fit hover:bg-white/10 transition-colors cursor-pointer group/song">
+                        <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center text-primary group-hover/song:animate-spin">
+                            <Music2 size={20} />
+                        </div>
+                        <div>
+                            <p className="text-white font-bold text-sm leading-tight">{post.song.title || 'Unknown Track'}</p>
+                            <p className="text-gray-500 text-xs font-medium">{post.song.artist || 'Unknown Artist'}</p>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -118,41 +171,65 @@ const PostCard = ({ post }) => {
 
 export default function Feed() {
     const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+    const [showScrollTop, setShowScrollTop] = useState(false);
     const { data: posts, isLoading, error } = useQuery({
         queryKey: ['feed'],
         queryFn: fetchFeed,
         refetchInterval: 5000 // Poll every 5s for realtime-ish feel
     });
 
+    useEffect(() => {
+        const handleScroll = () => setShowScrollTop(window.scrollY > 400);
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
     if (isLoading) return (
         <div className="flex h-[80vh] items-center justify-center flex-col gap-4">
             <Loader2 className="animate-spin text-primary" size={48} />
-            <p className="text-gray-500 font-mono animate-pulse">Fetching the tea...</p>
+            <p className="text-gray-500 font-mono animate-pulse uppercase tracking-[0.2em] text-xs font-bold">Initializing Feed Pulse...</p>
         </div>
     );
 
     return (
-        <div className="max-w-2xl mx-auto pt-4 relative pb-20">
-            <h1 className="text-4xl font-display font-black text-white mb-8 flex items-center gap-3">
-                Feed <span className="text-base font-sans font-medium text-gray-500 bg-surface px-3 py-1 rounded-full border border-white/10">Live</span>
+        <div className="max-w-2xl mx-auto pt-4 relative pb-20 scroll-smooth">
+            <h1 className="text-5xl font-display font-black text-white mb-8 flex items-center gap-3 italic tracking-tighter">
+                Feed<span className="text-primary">.</span> <span className="text-xs font-sans font-bold text-gray-400 bg-white/5 px-3 py-1.5 rounded-full border border-white/10 not-italic tracking-widest uppercase">Live Pulse</span>
             </h1>
 
-            <div className="space-y-6">
-                {posts?.map(post => (
-                    <PostCard key={post._id || post.id} post={post} />
+            <div className="space-y-12">
+                {posts?.map((post, i) => (
+                    <motion.div
+                        key={post._id || post.id}
+                        initial={{ opacity: 0, y: 30 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, margin: "-100px" }}
+                        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                        <PostCard post={post} />
+                    </motion.div>
                 ))}
-                {posts?.length === 0 && (
-                    <div className="text-center py-20 text-gray-500">
-                        <p>No posts yet. Be the first!</p>
-                    </div>
-                )}
             </div>
 
+            <AnimatePresence>
+                {showScrollTop && (
+                    <motion.button 
+                        initial={{ opacity: 0, scale: 0.5 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.5 }}
+                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                        className="fixed bottom-40 right-6 md:right-12 w-12 h-12 bg-white/5 backdrop-blur-xl text-white rounded-full border border-white/10 flex items-center justify-center z-40 hover:bg-white/10 transition-colors"
+                    >
+                        <ArrowUp size={20} />
+                    </motion.button>
+                )}
+            </AnimatePresence>
+
             <motion.button 
-                whileHover={{ scale: 1.1, rotate: 90 }}
-                whileTap={{ scale: 0.9 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => setIsPostModalOpen(true)}
-                className="fixed bottom-24 md:bottom-12 right-6 md:right-12 w-16 h-16 bg-primary text-black rounded-full shadow-[0_0_30px_rgba(234,179,8,0.4)] flex items-center justify-center z-40 border-4 border-black"
+                className="fixed bottom-24 md:bottom-12 right-6 md:right-12 w-16 h-16 bg-primary text-black rounded-3xl shadow-[0_20px_40px_rgba(234,179,8,0.3)] flex items-center justify-center z-40 border-4 border-black"
             >
                 <Plus size={32} strokeWidth={3} />
             </motion.button>

@@ -10,10 +10,12 @@ export const fetchFeed = async () => {
     return res.data;
 };
 
-export const createPost = async (content, image, user) => {
+export const createPost = async (content, image, video, song, user) => {
     const res = await axios.post(`${API_URL}/posts`, {
         content,
         image, // Base64 or URL
+        video, // URL
+        song, // { title, artist }
         author: user.displayName || 'Anonymous',
         authorId: user.uid,
         authorPhoto: user.photoURL
@@ -28,6 +30,16 @@ export const likePost = async (postId, userId) => {
 
 export const addComment = async (postId, text, author) => {
     const res = await axios.post(`${API_URL}/posts/${postId}/comment`, { text, author });
+    return res.data;
+};
+
+export const deletePost = async (postId) => {
+    const res = await axios.delete(`${API_URL}/posts/${postId}`);
+    return res.data;
+};
+
+export const reportPost = async (postId, reporterId, reason) => {
+    const res = await axios.post(`${API_URL}/posts/${postId}/report`, { reporterId, reason });
     return res.data;
 };
 
@@ -109,6 +121,16 @@ export const fetchReels = async () => {
     } catch (error) {
         return [];
     }
+};
+
+export const likeReel = async (reelId, userId) => {
+    const res = await axios.put(`${API_URL}/reels/${reelId}/like`, { userId });
+    return res.data;
+};
+
+export const addReelComment = async (reelId, text, author, authorId) => {
+    const res = await axios.post(`${API_URL}/reels/${reelId}/comment`, { text, author, authorId });
+    return res.data;
 };
 
 export const uploadReel = async (url, description, user) => {

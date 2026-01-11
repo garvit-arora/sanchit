@@ -10,21 +10,30 @@ export default function Chat() {
     const { currentUser } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [searchResults, setSearchResults] = useState([]);
-    const [activeChatUser, setActiveChatUser] = useState(null); // The user we are talking to
+    
+    // Persist Active Chat User
+    const [activeChatUser, setActiveChatUser] = useState(() => {
+        const saved = localStorage.getItem('last_active_chat_user');
+        return saved ? JSON.parse(saved) : null;
+    });
+
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState('');
     const [isVanishMode, setIsVanishMode] = useState(false);
-    
-    // Ensure every message has a unique key. When optimistic updating, we use Date.now(), 
-    // but the backend uses _id. We'll handle this in the render.
     const messagesEndRef = useRef(null);
 
-    // Debounced Search
+    // Persist choice
+    useEffect(() => {
+        if (activeChatUser) {
+            localStorage.setItem('last_active_chat_user', JSON.stringify(activeChatUser));
+        }
+    }, [activeChatUser]);
+
+    // Handle Search
     useEffect(() => {
         const timer = setTimeout(async () => {
              if(searchTerm.length > 1) {
                  const results = await searchUsers(searchTerm);
-                 // Filter out myself
                  setSearchResults(results.filter(u => u.uid !== currentUser.uid));
              } else {
                  setSearchResults([]);
@@ -33,24 +42,40 @@ export default function Chat() {
         return () => clearTimeout(timer);
     }, [searchTerm, currentUser.uid]);
 
-    // Poll Messages (Real-time Simulation via Long Polling)
+    // Calculate Online Status
+    const isOnline = (lastSeen) => {
+        if (!lastSeen) return false;
+        const diff = Date.now() - new Date(lastSeen).getTime();
+        return diff < 5 * 60 * 1000; // 5 Minutes
+    };
+
+    // Poll Messages AND Active User Status
     useEffect(() => {
         let interval;
-        const loadMessages = async () => {
+        const loadChatData = async () => {
              if (!activeChatUser) return;
+             
+             // 1. Fetch Messages
              const roomId = getChatRoomId(currentUser.uid, activeChatUser.uid);
              const msgs = await fetchMessages(roomId);
              setMessages(msgs);
+
+             // 2. Fetch User Latest Status (to check online)
+             if (activeChatUser.uid) {
+                try {
+                    const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/users/${activeChatUser.uid}`);
+                    setActiveChatUser(prev => ({ ...prev, lastSeen: res.data.lastSeen }));
+                } catch(e) {}
+             }
         };
 
         if (activeChatUser) {
-            loadMessages();
-            // Poll every 2 seconds for new messages
-            interval = setInterval(loadMessages, 2000);
+            loadChatData();
+            interval = setInterval(loadChatData, 3000);
         }
 
         return () => clearInterval(interval);
-    }, [activeChatUser, currentUser.uid]);
+    }, [activeChatUser?.uid, currentUser.uid]);
 
     const handleSend = async () => {
         if (!inputText.trim() || !activeChatUser) return;
@@ -139,9 +164,15 @@ export default function Chat() {
                             <img src={activeChatUser.photoURL} className="w-10 h-10 rounded-full border border-white/10" />
                             <div>
                                 <h3 className="text-white font-bold">{activeChatUser.displayName}</h3>
-                                <p className="text-xs text-green-500 flex items-center gap-1">
-                                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" /> Online
-                                </p>
+                                {isOnline(activeChatUser.lastSeen) ? (
+                                    <p className="text-xs text-green-500 flex items-center gap-1">
+                                         <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" /> Online
+                                    </p>
+                                ) : (
+                                    <p className="text-xs text-gray-500 flex items-center gap-1">
+                                         <span className="w-2 h-2 bg-gray-500 rounded-full" /> Offline
+                                    </p>
+                                )}
                             </div>
                         </div>
                         <div className="flex gap-4 text-gray-400">

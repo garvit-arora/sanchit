@@ -4,8 +4,25 @@ import { X, Upload, Film, Link as LinkIcon, AlertCircle } from 'lucide-react';
 
 export default function UploadReelModal({ isOpen, onClose, onUpload }) {
     const [url, setUrl] = useState('');
+    const [uploadMode, setUploadMode] = useState('link'); // 'link' or 'file'
     const [description, setDescription] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Check size (max 50MB for demo)
+            if (file.size > 50 * 1024 * 1024) {
+                alert("File too large. Max 50MB.");
+                return;
+            }
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setUrl(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -42,22 +59,58 @@ export default function UploadReelModal({ isOpen, onClose, onUpload }) {
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-8 space-y-6">
-                    <div>
-                        <label className="text-gray-400 text-sm font-bold ml-2 mb-2 block">Video URL (Direct link to .mp4)</label>
-                        <div className="relative group">
-                            <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-secondary transition-colors" size={20} />
-                            <input 
-                                type="url" 
-                                required
-                                value={url}
-                                onChange={(e) => setUrl(e.target.value)}
-                                className="w-full bg-black/50 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white outline-none focus:border-secondary transition-all"
-                                placeholder="https://example.com/video.mp4"
-                            />
+                <div className="flex p-2 bg-black/20 m-6 rounded-2xl">
+                    <button 
+                        onClick={() => { setUploadMode('link'); setUrl(''); }}
+                        className={`flex-1 py-3 rounded-xl font-bold transition-all ${uploadMode === 'link' ? 'bg-secondary text-black' : 'text-gray-500 hover:text-white'}`}
+                    >
+                        Link
+                    </button>
+                    <button 
+                        onClick={() => { setUploadMode('file'); setUrl(''); }}
+                        className={`flex-1 py-3 rounded-xl font-bold transition-all ${uploadMode === 'file' ? 'bg-secondary text-black' : 'text-gray-500 hover:text-white'}`}
+                    >
+                        File
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="px-8 pb-8 space-y-6">
+                    {uploadMode === 'link' ? (
+                        <div>
+                            <label className="text-gray-400 text-sm font-bold ml-2 mb-2 block">Video URL (Direct link to .mp4)</label>
+                            <div className="relative group">
+                                <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-secondary transition-colors" size={20} />
+                                <input 
+                                    type="url" 
+                                    required
+                                    value={url}
+                                    onChange={(e) => setUrl(e.target.value)}
+                                    className="w-full bg-black/50 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white outline-none focus:border-secondary transition-all"
+                                    placeholder="https://example.com/video.mp4"
+                                />
+                            </div>
                         </div>
+                    ) : (
+                        <div>
+                            <label className="text-gray-400 text-sm font-bold ml-2 mb-2 block">Upload Video File</label>
+                            <div className="relative border-2 border-dashed border-white/10 rounded-2xl p-8 hover:border-secondary transition-colors text-center">
+                                <input 
+                                    type="file" 
+                                    accept="video/*"
+                                    required
+                                    onChange={handleFileChange}
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                />
+                                <Upload className="mx-auto text-gray-500 mb-3" size={32} />
+                                <p className="text-gray-400 font-medium">Click to browse or drag video here</p>
+                                {url && <p className="text-secondary text-xs mt-2 font-bold">File Selected ✓</p>}
+                            </div>
+                        </div>
+                    )}
+
+                    <div>
                         <p className="text-[10px] text-gray-500 mt-2 ml-2 flex items-center gap-1">
-                            <AlertCircle size={10} /> Tip: Use a direct link from Imgur, Firebase, or S3.
+                            <AlertCircle size={10} /> Tip: Post vertical videos (9:16) for the best pulse vibe.
                         </p>
                     </div>
 
