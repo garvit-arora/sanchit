@@ -42,7 +42,7 @@ export default function Chat() {
             setConversations(data);
         };
         loadConversations();
-        const interval = setInterval(loadConversations, 10000); // Poll conversations list every 10s
+        const interval = setInterval(loadConversations, 5000); // Poll conversations list every 5s
         return () => clearInterval(interval);
     }, [currentUser.uid]);
 
@@ -78,9 +78,13 @@ export default function Chat() {
              if (!activeChatUser) return;
              
              // 1. Fetch Messages
-             const roomId = getChatRoomId(currentUser.uid, activeChatUser.uid);
-             const msgs = await fetchMessages(roomId);
-             setMessages(msgs);
+             try {
+                const roomId = getChatRoomId(currentUser.uid, activeChatUser.uid);
+                const msgs = await fetchMessages(roomId);
+                setMessages(msgs);
+             } catch(e) {
+                console.error("Poll failed", e);
+             }
 
              // 2. Fetch User Latest Status (to check online)
              if (activeChatUser.uid && activeChatUser.uid !== 'gemini_group') {
@@ -93,7 +97,7 @@ export default function Chat() {
 
         if (activeChatUser) {
             loadChatData();
-            interval = setInterval(loadChatData, 3000);
+            interval = setInterval(loadChatData, 2000);
         }
 
         return () => clearInterval(interval);
@@ -103,17 +107,26 @@ export default function Chat() {
         if (!inputText.trim() || !activeChatUser) return;
         const roomId = getChatRoomId(currentUser.uid, activeChatUser.uid);
         
+        const currentText = inputText;
+        setInputText('');
+
         // Optimistic UI Update
         const tempMsg = {
             id: Date.now(),
-            text: inputText,
+            text: currentText,
             senderId: currentUser.uid,
             createdAt: new Date().toISOString()
         };
         setMessages(prev => [...prev, tempMsg]);
-        setInputText('');
 
-        await sendMessage(roomId, tempMsg.text, currentUser);
+        try {
+            await sendMessage(roomId, currentText, currentUser);
+            // Immediate refresh of conversation list
+            const data = await fetchConversations(currentUser.uid);
+            setConversations(data);
+        } catch(e) {
+            console.error("Send failed", e);
+        }
     };
 
     return (

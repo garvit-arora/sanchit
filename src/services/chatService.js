@@ -23,7 +23,7 @@ export const fetchConversations = async (userId) => {
 
 // Create or Get Chat Room
 export const getChatRoomId = (myUid, otherUid) => {
-    if (!otherUid) return 'community_ai_group'; // Default group
+    if (!otherUid || otherUid === 'gemini_group') return 'community_ai_group'; // Force AI group ID
     const sortedIds = [myUid, otherUid].sort().join("_");
     return sortedIds;
 };
