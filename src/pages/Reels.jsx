@@ -1,33 +1,43 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MessageCircle, Share2, Volume2, VolumeX, Pause, Play, Plus, Upload, Loader2, X, Send, MessageSquare } from 'lucide-react';
+import { Heart, MessageCircle, Volume2, VolumeX, Play, Plus, Upload, Loader2, X, Send } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchReels, uploadReel, likeReel, addReelComment } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import UploadReelModal from '../components/UploadReelModal';
 
-const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted }) => {
+const VideoPlayer = ({ reel, isActive, currentUser }) => {
     const videoRef = useRef(null);
     const queryClient = useQueryClient();
-    const [isPlaying, setIsPlaying] = useState(true);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [isMuted, setIsMuted] = useState(true);
     const [showComments, setShowComments] = useState(false);
     const [commentText, setCommentText] = useState('');
     const [progress, setProgress] = useState(0);
-    const [playbackRate, setPlaybackRate] = useState(1);
+    const [videoError, setVideoError] = useState(false);
 
+    // Handle video playback when active
     useEffect(() => {
-        if (videoRef.current) {
-            videoRef.current.playbackRate = playbackRate;
-        }
-    }, [playbackRate]);
+        const video = videoRef.current;
+        if (!video) return;
 
-    useEffect(() => {
-        if (isActive && videoRef.current) {
-            videoRef.current.currentTime = 0;
-            videoRef.current.play().catch(e => console.log("Autoplay blocked", e));
-            setIsPlaying(true);
-        } else if (videoRef.current) {
-            videoRef.current.pause();
+        if (isActive) {
+            video.currentTime = 0;
+            const playPromise = video.play();
+            
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        setIsPlaying(true);
+                        setVideoError(false);
+                    })
+                    .catch(error => {
+                        console.log("Autoplay prevented:", error);
+                        setIsPlaying(false);
+                    });
+            }
+        } else {
+            video.pause();
             setIsPlaying(false);
         }
     }, [isActive]);
@@ -35,8 +45,31 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
     const handleTimeUpdate = () => {
         if (videoRef.current) {
             const p = (videoRef.current.currentTime / videoRef.current.duration) * 100;
-            setProgress(p);
+            setProgress(isNaN(p) ? 0 : p);
         }
+    };
+
+    const handleVideoError = (e) => {
+        console.error("Video error:", e);
+        setVideoError(true);
+    };
+
+    const togglePlay = (e) => {
+        e.stopPropagation();
+        const video = videoRef.current;
+        if (!video) return;
+
+        if (video.paused) {
+            video.play().then(() => setIsPlaying(true)).catch(console.error);
+        } else {
+            video.pause();
+            setIsPlaying(false);
+        }
+    };
+
+    const toggleMute = (e) => {
+        e.stopPropagation();
+        setIsMuted(!isMuted);
     };
 
     const likeMutation = useMutation({
@@ -45,175 +78,222 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
     });
 
     const commentMutation = useMutation({
-        mutationFn: () => addReelComment(reel._id, commentText, currentUser.displayName, currentUser.uid),
+        mutationFn: async () => {
+            if (!commentText.trim()) return;
+            await addReelComment(reel._id, commentText, currentUser.displayName, currentUser.uid);
+        },
         onSuccess: () => {
             queryClient.invalidateQueries(['reels']);
             setCommentText('');
         }
     });
 
-    const togglePlay = () => {
-        if (videoRef.current.paused) {
-            videoRef.current.play();
-            setIsPlaying(true);
-        } else {
-            videoRef.current.pause();
-            setIsPlaying(false);
+    const handleCommentSubmit = (e) => {
+        e.preventDefault();
+        if (commentText.trim()) {
+            commentMutation.mutate();
         }
     };
 
     const hasLiked = reel.likes?.includes(currentUser?.uid);
 
+    // Convert YouTube Shorts URL to embed if needed
+    const getVideoUrl = (url) => {
+        if (!url) return '';
+        
+        // Check if it's a YouTube Shorts URL
+        if (url.includes('youtube.com/shorts/') || url.includes('youtu.be/')) {
+            const videoId = url.includes('shorts/') 
+                ? url.split('shorts/')[1].split('?')[0]
+                : url.split('youtu.be/')[1].split('?')[0];
+            return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}`;
+        }
+        
+        return url;
+    };
+
+    const videoUrl = getVideoUrl(reel.url);
+    const isYouTube = videoUrl.includes('youtube.com/embed');
+
     return (
-        <div className="relative w-full h-[100dvh] bg-black flex items-center justify-center snap-start overflow-hidden border-b border-white/5">
-            {/* Background Blur */}
-            <div className="absolute inset-0 overflow-hidden opacity-30 pointer-events-none">
-                <img src={reel.url} className="w-full h-full object-cover blur-[100px] scale-150" alt="" />
+        <div className="relative w-full h-[100dvh] bg-black snap-start snap-always overflow-hidden">
+            {/* Video Container */}
+            <div className="absolute inset-0 flex items-center justify-center">
+                {isYouTube ? (
+                    <iframe
+                        src={videoUrl}
+                        className="w-full h-full"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                    />
+                ) : videoError ? (
+                    <div className="flex flex-col items-center justify-center gap-4 text-white">
+                        <X size={64} className="text-red-500" />
+                        <p className="text-lg font-bold">Video failed to load</p>
+                        <p className="text-sm text-gray-400">URL: {reel.url}</p>
+                    </div>
+                ) : (
+                    <video
+                        ref={videoRef}
+                        src={reel.url}
+                        className="w-full h-full object-contain"
+                        loop
+                        muted={isMuted}
+                        playsInline
+                        webkit-playsinline="true"
+                        onTimeUpdate={handleTimeUpdate}
+                        onError={handleVideoError}
+                        onClick={togglePlay}
+                        crossOrigin="anonymous"
+                    />
+                )}
             </div>
 
-            <div className="relative w-full max-w-[450px] h-full bg-black shadow-2xl flex flex-col items-center justify-center">
-                <video
-                    ref={videoRef}
-                    src={reel.url}
-                    className="w-full h-full object-contain cursor-pointer"
-                    loop
-                    muted={globalMuted}
-                    playsInline
-                    onClick={togglePlay}
-                    onTimeUpdate={handleTimeUpdate}
-                />
-                
-                {/* Play/Pause Overlay */}
-                <AnimatePresence>
-                    {!isPlaying && (
-                        <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5 }} className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none z-30">
-                            <div className="w-20 h-20 md:w-24 md:h-24 bg-white/10 backdrop-blur-3xl rounded-full flex items-center justify-center border border-white/20 shadow-2xl">
-                                <Play className="text-white fill-white translate-x-1" size={48} />
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+            {/* Play/Pause Overlay */}
+            {!isYouTube && !isPlaying && !videoError && (
+                <motion.div 
+                    initial={{ opacity: 0 }} 
+                    animate={{ opacity: 1 }} 
+                    className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
+                >
+                    <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center">
+                        <Play className="text-white fill-white ml-1" size={40} />
+                    </div>
+                </motion.div>
+            )}
 
-                {/* Progress Bar */}
-                <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/10 z-[60] overflow-hidden">
-                    <motion.div 
-                        className="h-full bg-secondary shadow-[0_0_15px_#facc15]"
-                        animate={{ width: `${progress}%` }}
-                        transition={{ duration: 0 }}
+            {/* Progress Bar */}
+            {!isYouTube && (
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20 z-50">
+                    <div 
+                        className="h-full bg-white transition-all duration-100"
+                        style={{ width: `${progress}%` }}
                     />
                 </div>
+            )}
 
-                {/* Vertical Sidebar - Shifted and more visible */}
-                <div className="absolute right-4 bottom-32 flex flex-col gap-5 md:gap-7 items-center z-[70]">
-                    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); likeMutation.mutate(); }} className="flex flex-col items-center gap-1.5">
-                        <div className={`w-14 h-14 rounded-2xl backdrop-blur-3xl border-2 flex items-center justify-center transition-all ${hasLiked ? 'bg-primary border-primary text-black shadow-[0_0_25px_rgba(234,179,8,0.6)]' : 'bg-white/10 border-white/10 text-white hover:border-white/40'}`}>
-                            <Heart size={26} className={hasLiked ? 'fill-current' : ''} />
-                        </div>
-                        <span className="text-xs font-black text-white drop-shadow-lg tracking-tighter">{reel.likes?.length || 0}</span>
-                    </motion.button>
+            {/* Right Side Actions */}
+            <div className="absolute right-4 bottom-24 flex flex-col gap-6 z-40">
+                {/* Like Button */}
+                <button 
+                    onClick={(e) => { e.stopPropagation(); likeMutation.mutate(); }}
+                    className="flex flex-col items-center gap-1"
+                >
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                        hasLiked ? 'bg-red-500' : 'bg-white/20 backdrop-blur-md'
+                    }`}>
+                        <Heart size={24} className={`${hasLiked ? 'fill-white text-white' : 'text-white'}`} />
+                    </div>
+                    <span className="text-white text-xs font-bold">{reel.likes?.length || 0}</span>
+                </button>
 
-                    <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); setShowComments(true); }} className="flex flex-col items-center gap-1.5">
-                        <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-3xl border-2 border-white/10 flex items-center justify-center text-white hover:border-white/40 transition-all">
-                            <MessageCircle size={26} />
-                        </div>
-                        <span className="text-xs font-black text-white drop-shadow-lg tracking-tighter">{reel.comments?.length || 0}</span>
-                    </motion.button>
+                {/* Comment Button */}
+                <button 
+                    onClick={(e) => { e.stopPropagation(); setShowComments(true); }}
+                    className="flex flex-col items-center gap-1"
+                >
+                    <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center">
+                        <MessageCircle size={24} className="text-white" />
+                    </div>
+                    <span className="text-white text-xs font-bold">{reel.comments?.length || 0}</span>
+                </button>
 
-                    <motion.button 
-                        whileTap={{ scale: 0.9 }}
-                        onClick={(e) => { e.stopPropagation(); setGlobalMuted(!globalMuted); }}
-                        className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-3xl border-2 border-white/10 flex items-center justify-center text-white transition-all shadow-xl"
-                    >
-                        {globalMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
-                    </motion.button>
-
+                {/* Mute Button */}
+                {!isYouTube && (
                     <button 
-                        onClick={(e) => { e.stopPropagation(); setPlaybackRate(playbackRate === 1 ? 1.5 : playbackRate === 1.5 ? 2 : 1); }}
-                        className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-3xl border-2 border-white/10 flex items-center justify-center text-[10px] font-black text-white transition-all shadow-xl"
+                        onClick={toggleMute}
+                        className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center"
                     >
-                        {playbackRate === 1 ? '1X' : playbackRate === 1.5 ? '1.5X' : '2X'}
+                        {isMuted ? <VolumeX size={24} className="text-white" /> : <Volume2 size={24} className="text-white" />}
                     </button>
-                </div>
+                )}
+            </div>
 
-                {/* Bottom Info */}
-                <div className="absolute bottom-0 left-0 right-16 p-6 pb-14 z-50 pointer-events-none">
-                    <div className="max-w-full pointer-events-auto">
-                        <motion.div 
-                            initial={{ x: -20, opacity: 0 }}
-                            animate={{ x: 0, opacity: 1 }}
-                            className="flex items-center gap-3 mb-4"
-                        >
-                            <img src={reel.userPhoto} className="w-11 h-11 rounded-2xl border-2 border-white/20 shadow-2xl object-cover" alt="" />
-                            <div>
-                                <h4 className="font-black text-white text-base md:text-lg tracking-tight leading-none">{reel.userDisplayName}</h4>
-                                <span className="text-secondary text-[10px] font-black uppercase tracking-[0.2em] mt-1 block">ACTIVE SANCHIT Wave</span>
-                            </div>
-                        </motion.div>
-                        <p className="text-white font-medium text-xs md:text-sm leading-relaxed drop-shadow-2xl line-clamp-2">
-                            {reel.description}
-                        </p>
+            {/* Bottom Info */}
+            <div className="absolute bottom-0 left-0 right-20 p-4 pb-6 z-30 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+                <div className="flex items-center gap-3 mb-2">
+                    <img 
+                        src={reel.userPhoto || `https://ui-avatars.com/api/?name=${reel.userDisplayName}`} 
+                        className="w-10 h-10 rounded-full border-2 border-white" 
+                        alt={reel.userDisplayName}
+                    />
+                    <div>
+                        <h4 className="text-white font-bold text-sm">{reel.userDisplayName}</h4>
+                        <p className="text-gray-300 text-xs">{new Date(reel.createdAt).toLocaleDateString()}</p>
                     </div>
                 </div>
+                {reel.description && (
+                    <p className="text-white text-sm line-clamp-2">{reel.description}</p>
+                )}
+            </div>
 
-                {/* Comments Drawer */}
-                <AnimatePresence>
-                    {showComments && (
-                        <motion.div 
-                            initial={{ y: "100%" }}
-                            animate={{ y: 0 }}
-                            exit={{ y: "100%" }}
-                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                            className="absolute inset-0 bg-[#050505]/98 backdrop-blur-3xl z-[100] flex flex-col rounded-t-[2.5rem] mt-24 border-t border-white/10 shadow-[0_-20px_50px_rgba(0,0,0,0.8)]"
-                        >
-                            <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mt-4 mb-2 cursor-pointer" onClick={() => setShowComments(false)} />
-                            <header className="px-8 py-4 flex justify-between items-center bg-white/[0.02]">
-                                <div>
-                                    <h3 className="text-xl md:text-2xl font-black text-white italic">Reactions</h3>
-                                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">{reel.comments?.length || 0} Responses</p>
-                                </div>
-                                <button onClick={() => setShowComments(false)} className="bg-white/5 p-3 rounded-2xl text-gray-400 hover:text-white transition-colors border border-white/5"><X size={20} /></button>
-                            </header>
-                            
-                            <div className="flex-1 overflow-y-auto px-6 md:px-8 py-6 space-y-6 no-scrollbar">
-                                {reel.comments?.length > 0 ? reel.comments.map((c, i) => (
-                                    <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} key={i} className="flex gap-4">
-                                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-white/5 shrink-0 flex items-center justify-center font-black text-primary text-xl uppercase border border-white/10">
-                                            {c.author?.[0]}
+            {/* Comments Drawer - Instagram Style */}
+            <AnimatePresence>
+                {showComments && (
+                    <motion.div 
+                        initial={{ y: "100%" }}
+                        animate={{ y: 0 }}
+                        exit={{ y: "100%" }}
+                        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                        className="absolute inset-0 bg-white z-50 flex flex-col"
+                    >
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                            <h3 className="text-lg font-bold">Comments</h3>
+                            <button onClick={() => setShowComments(false)} className="p-2">
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        {/* Comments List */}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                            {reel.comments && reel.comments.length > 0 ? (
+                                reel.comments.map((comment, idx) => (
+                                    <div key={idx} className="flex gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                            {comment.author?.[0]?.toUpperCase() || 'U'}
                                         </div>
                                         <div className="flex-1">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="font-black text-white text-xs md:text-sm">{c.author}</span>
-                                                <span className="text-[10px] text-gray-600 font-bold">{new Date(c.createdAt).toLocaleDateString()}</span>
-                                            </div>
-                                            <p className="text-gray-400 text-xs md:text-sm leading-relaxed font-medium">{c.text}</p>
+                                            <p className="text-sm">
+                                                <span className="font-bold mr-2">{comment.author}</span>
+                                                {comment.text}
+                                            </p>
+                                            <p className="text-xs text-gray-500 mt-1">
+                                                {new Date(comment.createdAt).toLocaleDateString()}
+                                            </p>
                                         </div>
-                                    </motion.div>
-                                )) : (
-                                    <div className="h-full flex flex-col items-center justify-center text-gray-700 opacity-20 py-20">
-                                        <MessageSquare size={64} className="mb-4" />
-                                        <p className="font-black uppercase tracking-widest">No wave reflections yet</p>
                                     </div>
-                                )}
-                            </div>
-
-                            <div className="p-6 bg-black border-t border-white/10 pb-12">
-                                <div className="flex gap-4 max-w-lg mx-auto">
-                                    <input 
-                                        className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-secondary transition-all font-medium text-sm"
-                                        placeholder="Add to the pulse..."
-                                        value={commentText}
-                                        onChange={e => setCommentText(e.target.value)}
-                                        onKeyDown={e => e.key === 'Enter' && commentMutation.mutate()}
-                                    />
-                                    <button onClick={() => commentMutation.mutate()} className="bg-secondary text-black w-14 h-14 rounded-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(234,179,8,0.3)]">
-                                        <Send size={24} />
-                                    </button>
+                                ))
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                                    <MessageCircle size={48} className="mb-2" />
+                                    <p className="text-sm">No comments yet</p>
+                                    <p className="text-xs">Be the first to comment!</p>
                                 </div>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
+                            )}
+                        </div>
+
+                        {/* Comment Input */}
+                        <form onSubmit={handleCommentSubmit} className="p-4 border-t border-gray-200 flex gap-2">
+                            <input
+                                type="text"
+                                value={commentText}
+                                onChange={(e) => setCommentText(e.target.value)}
+                                placeholder="Add a comment..."
+                                className="flex-1 px-4 py-2 border border-gray-300 rounded-full outline-none focus:border-black"
+                            />
+                            <button
+                                type="submit"
+                                disabled={!commentText.trim() || commentMutation.isPending}
+                                className="px-6 py-2 bg-black text-white rounded-full font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {commentMutation.isPending ? 'Posting...' : 'Post'}
+                            </button>
+                        </form>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };
@@ -221,99 +301,129 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
 export default function Reels() {
     const [activeIndex, setActiveIndex] = useState(0);
     const [isUploadOpen, setIsUploadOpen] = useState(false);
-    const [globalMuted, setGlobalMuted] = useState(true);
     const { currentUser } = useAuth();
     const queryClient = useQueryClient();
+    const containerRef = useRef(null);
     
-    const { data: reels, isLoading } = useQuery({
+    const { data: reels, isLoading, error } = useQuery({
         queryKey: ['reels'],
-        queryFn: fetchReels
+        queryFn: fetchReels,
+        refetchInterval: 10000 // Refetch every 10 seconds
     });
 
     const handleUpload = async (url, desc) => {
         try {
             await uploadReel(url, desc, currentUser);
             queryClient.invalidateQueries(['reels']);
+            setIsUploadOpen(false);
             return true;
         } catch (err) {
-            alert("Upload failed.");
+            console.error("Upload error:", err);
+            alert("Upload failed: " + err.message);
             throw err;
         }
     };
 
     const handleScroll = (e) => {
+        const scrollTop = e.target.scrollTop;
         const clientHeight = e.target.clientHeight;
-        const index = Math.round(e.target.scrollTop / clientHeight);
-        if (index !== activeIndex && index >= 0 && index < (reels?.length || 0)) {
-            setActiveIndex(index);
+        const newIndex = Math.round(scrollTop / clientHeight);
+        
+        if (newIndex !== activeIndex && newIndex >= 0 && newIndex < (reels?.length || 0)) {
+            setActiveIndex(newIndex);
         }
     };
 
-    // Global click listener to handle browser auto-play restrictions
-    useEffect(() => {
-        const firstClick = () => {
-            setGlobalMuted(false);
-            window.removeEventListener('mousedown', firstClick);
-        };
-        window.addEventListener('mousedown', firstClick);
-        return () => window.removeEventListener('mousedown', firstClick);
-    }, []);
+    if (isLoading) {
+        return (
+            <div className="fixed inset-0 bg-black flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="animate-spin text-white" size={48} />
+                    <p className="text-white font-bold">Loading Reels...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="fixed inset-0 bg-black flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4 text-white">
+                    <X size={64} className="text-red-500" />
+                    <p className="font-bold">Failed to load reels</p>
+                    <button 
+                        onClick={() => queryClient.invalidateQueries(['reels'])}
+                        className="px-6 py-2 bg-white text-black rounded-full font-bold"
+                    >
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="fixed inset-0 bg-black overflow-hidden select-none">
-            {/* Logo Overlay - Renamed to Sanchit */}
-            <div className="absolute top-10 left-10 z-50 pointer-events-none hidden md:block">
-                <h2 className="text-4xl font-display font-black text-white italic tracking-tighter drop-shadow-2xl">Sanchit<span className="text-secondary">.</span></h2>
+        <div className="fixed inset-0 bg-black">
+            {/* Header */}
+            <div className="absolute top-0 left-0 right-0 p-4 z-50 bg-gradient-to-b from-black/80 to-transparent">
+                <h1 className="text-white text-2xl font-bold">Sanchit Reels</h1>
             </div>
 
-            {/* Launch Action */}
-            <motion.button 
-                whileHover={{ scale: 1.05, rotate: 5 }}
-                whileTap={{ scale: 0.95 }}
+            {/* Upload Button */}
+            <button
                 onClick={() => setIsUploadOpen(true)}
-                className="fixed bottom-28 md:bottom-12 right-6 md:right-12 w-16 h-16 md:w-20 md:h-20 bg-primary text-black rounded-3xl shadow-[0_20px_40px_rgba(234,179,8,0.3)] flex items-center justify-center z-[80] border-4 border-black group"
+                className="fixed top-4 right-4 z-50 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg"
             >
-                <Plus size={36} strokeWidth={4} className="group-hover:rotate-90 transition-transform duration-500" />
-            </motion.button>
+                <Plus size={24} className="text-black" />
+            </button>
 
-            {/* Main Scrolling Container */}
+            {/* Reels Container */}
             <div 
+                ref={containerRef}
                 onScroll={handleScroll}
-                className="h-[100dvh] w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth no-scrollbar overscroll-none"
+                className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-                {isLoading ? (
-                    <div className="h-full flex flex-col items-center justify-center gap-6 bg-black">
-                        <motion.div 
-                            animate={{ rotate: 360, scale: [1, 1.1, 1] }} 
-                            transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }} 
-                            className="w-16 h-16 border-4 border-white/5 border-t-primary rounded-full shadow-[0_0_40px_rgba(234,179,8,0.2)]" 
-                        />
-                        <p className="text-primary font-black uppercase tracking-[0.4em] text-[10px] animate-pulse">Syncing Waves</p>
-                    </div>
-                ) : (
-                    reels?.length > 0 ? reels.map((reel, i) => (
-                        <VideoPlayer 
-                            key={reel._id} 
-                            reel={reel} 
-                            isActive={i === activeIndex} 
+                {reels && reels.length > 0 ? (
+                    reels.map((reel, index) => (
+                        <VideoPlayer
+                            key={reel._id}
+                            reel={reel}
+                            isActive={index === activeIndex}
                             currentUser={currentUser}
-                            globalMuted={globalMuted}
-                            setGlobalMuted={setGlobalMuted}
                         />
-                    )) : (
-                        <div className="h-full flex flex-col items-center justify-center text-center p-12 bg-[#050505]">
-                             <Upload size={80} className="text-white/5 mb-8" />
-                             <h3 className="text-4xl font-black text-white mb-4 italic tracking-tighter">Zero Connection<span className="text-primary">.</span></h3>
-                             <p className="text-gray-500 max-w-sm font-medium leading-relaxed">The campus is silent. Be the catalyst. Launch a Sanchit wave and broadcast your frequency to the tribe.</p>
-                             <button onClick={() => setIsUploadOpen(true)} className="mt-8 bg-white text-black font-black px-10 py-4 rounded-2xl hover:bg-primary transition-all active:scale-95">BREACH THE SILENCE</button>
-                        </div>
-                    )
+                    ))
+                ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-white p-8 text-center">
+                        <Upload size={64} className="mb-4 opacity-50" />
+                        <h2 className="text-2xl font-bold mb-2">No Reels Yet</h2>
+                        <p className="text-gray-400 mb-6">Be the first to upload a reel!</p>
+                        <button
+                            onClick={() => setIsUploadOpen(true)}
+                            className="px-8 py-3 bg-white text-black rounded-full font-bold"
+                        >
+                            Upload Reel
+                        </button>
+                    </div>
                 )}
             </div>
 
+            {/* Upload Modal */}
             <AnimatePresence>
-                {isUploadOpen && <UploadReelModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUpload={handleUpload} />}
+                {isUploadOpen && (
+                    <UploadReelModal
+                        isOpen={isUploadOpen}
+                        onClose={() => setIsUploadOpen(false)}
+                        onUpload={handleUpload}
+                    />
+                )}
             </AnimatePresence>
+
+            <style jsx>{`
+                div::-webkit-scrollbar {
+                    display: none;
+                }
+            `}</style>
         </div>
     );
 }
