@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, MessageCircle, Share2, Volume2, VolumeX, Pause, Play, Plus, Upload } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
 import { fetchReels, uploadReel } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
 
 const VideoPlayer = ({ reel, isActive, currentUser }) => {
     const videoRef = useRef(null);
@@ -90,6 +90,7 @@ const VideoPlayer = ({ reel, isActive, currentUser }) => {
 export default function Reels() {
     const [activeIndex, setActiveIndex] = useState(0);
     const { currentUser } = useAuth();
+    const queryClient = useQueryClient();
     
     const { data: reels, isLoading } = useQuery({
         queryKey: ['reels'],
@@ -101,9 +102,13 @@ export default function Reels() {
         const url = prompt("Enter Video URL (mp4):");
         if(url) {
             const desc = prompt("Enter Description:");
-            await uploadReel(url, desc, currentUser);
-            // Invalidate/Refetch would be better here
-            window.location.reload(); 
+            try {
+                await uploadReel(url, desc, currentUser);
+                await queryClient.invalidateQueries(['reels']);
+                alert("Reel launched! 🚀");
+            } catch (err) {
+                alert("Upload failed.");
+            }
         }
     };
 

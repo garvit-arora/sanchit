@@ -4,7 +4,10 @@ import { Badge, MapPin, DollarSign, ArrowUpRight, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchJobs, applyForJob } from '../services/api';
 import ApplyJobModal from '../components/ApplyJobModal';
+import CreateJobModal from '../components/CreateJobModal';
 import { useAuth } from '../context/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { Plus } from 'lucide-react';
 
 const JobCard = ({ job, onApply }) => (
     <motion.div 
@@ -52,6 +55,8 @@ const JobCard = ({ job, onApply }) => (
 export default function Opportunities() {
     const { currentUser } = useAuth();
     const [selectedJob, setSelectedJob] = useState(null);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const queryClient = useQueryClient();
 
     const { data: jobs, isLoading } = useQuery({
         queryKey: ['jobs'],
@@ -76,9 +81,19 @@ export default function Opportunities() {
 
     return (
         <div className="pt-4 pb-20">
-             <header className="mb-12">
-                <h1 className="text-5xl font-display font-black text-white mb-4">Gigs</h1>
-                <p className="text-gray-400 text-xl">Get paid. Buy skins. Repeat.</p>
+             <header className="mb-12 flex justify-between items-end">
+                <div>
+                    <h1 className="text-5xl font-display font-black text-white mb-4">Gigs</h1>
+                    <p className="text-gray-400 text-xl">Get paid. Buy skins. Repeat.</p>
+                </div>
+                
+                {/* Available for everyone for testing, ideally restrict to Alumni/Admin */}
+                <button 
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="bg-primary text-black font-bold px-6 py-3 rounded-2xl flex items-center gap-2 hover:bg-yellow-400 transition-all hover:scale-105"
+                >
+                    <Plus size={20} /> Post Job
+                </button>
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -100,6 +115,13 @@ export default function Opportunities() {
                         onClose={() => setSelectedJob(null)} 
                         job={selectedJob}
                         onApply={handleApply}
+                    />
+                )}
+                {isCreateModalOpen && (
+                    <CreateJobModal 
+                        isOpen={isCreateModalOpen}
+                        onClose={() => setIsCreateModalOpen(false)}
+                        onCreated={() => queryClient.invalidateQueries(['jobs'])}
                     />
                 )}
             </AnimatePresence>
