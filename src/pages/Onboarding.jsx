@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ArrowRight, Check, Mail, Code, Sparkles, GraduationCap } from 'lucide-react';
 import axios from 'axios';
+import { updateEmail, sendEmailVerification, verifyBeforeUpdateEmail } from 'firebase/auth';
+import { auth as firebaseAuth } from '../firebase';
 
 const StepOne = ({ data, updateData, onNext }) => (
     <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }} className="space-y-6">
@@ -28,7 +30,6 @@ const StepOne = ({ data, updateData, onNext }) => (
                     className="w-full bg-surface border border-white/10 rounded-xl p-4 text-white outline-none focus:border-primary transition-colors"
                 />
             </div>
-            {/* Role buttons... */}
             <div>
                 <label className="text-gray-400 text-sm font-bold ml-2">Role</label>
                 <div className="grid grid-cols-2 gap-4 mt-2">
@@ -43,7 +44,6 @@ const StepOne = ({ data, updateData, onNext }) => (
                     ))}
                 </div>
             </div>
-            {/* Leetcode... */}
             <div>
                 <label className="text-gray-400 text-sm font-bold ml-2">LeetCode Username</label>
                 <div className="flex items-center gap-2 bg-surface border border-white/10 rounded-xl p-4 mt-2">
@@ -71,7 +71,7 @@ const StepTwo = ({ data, updateData, onNext, isLoading }) => (
                 <GraduationCap className="text-blue-500" size={40} />
             </div>
             <h2 className="text-3xl font-display font-black text-white">Prove it.</h2>
-            <p className="text-gray-400 mt-2">Enter your college email (.edu.in) to verify status.</p>
+            <p className="text-gray-400 mt-2">Enter your college email (.edu.in). We'll send a Firebase verification link.</p>
         </div>
 
         <div className="space-y-4">
@@ -85,11 +85,6 @@ const StepTwo = ({ data, updateData, onNext, isLoading }) => (
                     className="bg-transparent text-white outline-none w-full"
                 />
             </div>
-            {data.role === 'Alumni' && (
-                <p className="text-xs text-yellow-500 bg-yellow-500/10 p-2 rounded-lg text-center">
-                    Alumni verification is manual. You'll get limited access for now.
-                </p>
-            )}
         </div>
 
         <button 
@@ -97,35 +92,30 @@ const StepTwo = ({ data, updateData, onNext, isLoading }) => (
             disabled={isLoading || !data.collegeEmail}
             className="w-full bg-blue-600 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 transition-colors"
         >
-            {isLoading ? 'Sending...' : 'Send Code'}
+            {isLoading ? 'Sending Link...' : 'Send Verification Link'}
         </button>
     </motion.div>
 );
 
-const StepThree = ({ data, updateData, onNext }) => (
+const StepThree = ({ data, onNext, isLoading }) => (
     <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }} className="space-y-6">
         <div className="text-center mb-8">
+            <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/20">
+                <Mail className="text-green-500" size={40} />
+            </div>
             <h2 className="text-3xl font-display font-black text-white">Check Inbox.</h2>
-            <p className="text-gray-400 mt-2">We sent a 6-digit code to {data.collegeEmail}</p>
+            <p className="text-gray-400 mt-2">We sent a verification link to <br/><span className="text-white font-bold">{data.collegeEmail}</span></p>
+            <p className="text-xs text-gray-500 mt-4 italic">Click the link in the email, then come back here and click the button below.</p>
         </div>
 
-        <input 
-            type="text" 
-            placeholder="000000"
-            maxLength={6}
-            className="w-full bg-surface border border-white/10 rounded-xl p-4 text-center text-3xl font-mono text-white tracking-[1em] outline-none focus:border-primary"
-            onChange={e => updateData({ otp: e.target.value })}
-        />
-
-        <button onClick={onNext} className="w-full bg-green-500 text-black font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:scale-105 transition-transform">
-            Verify & Launch 🚀
+        <button onClick={onNext} disabled={isLoading} className="w-full bg-green-500 text-black font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:scale-105 transition-transform disabled:opacity-50">
+            {isLoading ? 'Checking...' : "I've Verified! 🚀"}
         </button>
     </motion.div>
 );
 
 export default function Onboarding() {
-    const { currentUser, userProfile } = useAuth();
-    const navigate = useNavigate();
+    const { currentUser } = useAuth();
     const [step, setStep] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
     const [data, setData] = useState({
@@ -134,47 +124,60 @@ export default function Onboarding() {
         role: 'Student',
         leetcodeUsername: '',
         collegeEmail: '',
-        otp: ''
     });
 
     const updateData = (newData) => setData(prev => ({ ...prev, ...newData }));
 
-    const handleSendOTP = async () => {
+    const handleSendLink = async () => {
+        if (!data.collegeEmail.endsWith('.edu.in')) {
+            alert("Please use a valid .edu.in email");
+            return;
+        }
         setIsLoading(true);
         try {
-             await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/send-otp`, { collegeEmail: data.collegeEmail });
+             const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+             await axios.put(`${API_BASE}/auth/profile`, {
+                 uid: currentUser.uid,
+                 displayName: data.displayName,
+                 username: data.username,
+                 role: data.role,
+                 leetcodeUsername: data.leetcodeUsername,
+                 collegeEmail: data.collegeEmail,
+                 isVerified: false
+             });
+
+             await verifyBeforeUpdateEmail(currentUser, data.collegeEmail);
              setStep(3);
+             alert("Verification link sent! Check your spam folder if not found.");
         } catch (e) {
-            alert("Failed to send code: " + (e.response?.data?.error || e.message));
+            console.error(e);
+            alert("Error: " + (e.code === 'auth/requires-recent-login' 
+                ? "Recent login required. Please log out and log back in to verify." 
+                : (e.message)));
         }
         setIsLoading(false);
     };
 
-    const handleVerifyParams = async () => {
+    const handleCheckVerification = async () => {
         setIsLoading(true);
         try {
-            // Verify OTP
-            await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/verify-otp`, { 
-                email: data.collegeEmail, 
-                otp: data.otp,
-                uid: currentUser.uid 
-            });
+            await currentUser.reload();
+            const freshUser = firebaseAuth.currentUser;
 
-            // Update Profile with other details
-            await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/profile`, {
-                uid: currentUser.uid,
-                displayName: data.displayName,
-                username: data.username,
-                role: data.role,
-                leetcodeUsername: data.leetcodeUsername
-            });
-
-            // Reload to refresh context
-            window.location.href = '/feed';
+            if (freshUser.emailVerified && freshUser.email === data.collegeEmail) {
+                const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+                await axios.post(`${API_BASE}/auth/confirm-verification`, { 
+                    uid: currentUser.uid,
+                    collegeEmail: data.collegeEmail
+                });
+                window.location.href = '/feed';
+            } else {
+                alert("Email not yet verified. Please click the link in your email first.");
+            }
         } catch (e) {
-            alert("Verification Failed: " + (e.response?.data?.error || e.message));
-            setIsLoading(false);
+            alert("Check failed: " + e.message);
         }
+        setIsLoading(false);
     };
 
     return (
@@ -189,8 +192,8 @@ export default function Onboarding() {
              <div className="w-full max-w-md bg-black/50 backdrop-blur-xl border border-white/10 p-8 rounded-3xl relative z-10">
                  <AnimatePresence mode="wait">
                     {step === 1 && <StepOne key="1" data={data} updateData={updateData} onNext={() => setStep(2)} />}
-                    {step === 2 && <StepTwo key="2" data={data} updateData={updateData} onNext={handleSendOTP} isLoading={isLoading} />}
-                    {step === 3 && <StepThree key="3" data={data} updateData={updateData} onNext={handleVerifyParams} />}
+                    {step === 2 && <StepTwo key="2" data={data} updateData={updateData} onNext={handleSendLink} isLoading={isLoading} />}
+                    {step === 3 && <StepThree key="3" data={data} onNext={handleCheckVerification} isLoading={isLoading} />}
                  </AnimatePresence>
              </div>
         </div>
