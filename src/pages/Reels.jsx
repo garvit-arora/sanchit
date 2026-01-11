@@ -1,10 +1,46 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MessageCircle, Volume2, VolumeX, Play, Plus, Upload, Loader2, X, Send, Share2, Music } from 'lucide-react';
+import { Heart, MessageCircle, Volume2, VolumeX, Play, Plus, Upload, Loader2, X, Send, Share2, Music, Smile } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchReels, uploadReel, likeReel, addReelComment } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import UploadReelModal from '../components/UploadReelModal';
+
+// Emoji picker component
+const EMOJIS = ['😀', '😂', '😍', '🥰', '😎', '🤩', '😭', '😱', '🔥', '❤️', '👍', '👏', '🙌', '💯', '✨', '🎉'];
+
+const EmojiPicker = ({ onSelect }) => {
+    const [show, setShow] = useState(false);
+
+    return (
+        <div className="relative">
+            <button
+                type="button"
+                onClick={() => setShow(!show)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+                <Smile size={20} className="text-gray-500" />
+            </button>
+            {show && (
+                <div className="absolute bottom-12 right-0 bg-white border border-gray-200 rounded-2xl shadow-xl p-3 grid grid-cols-8 gap-2 z-50">
+                    {EMOJIS.map((emoji, idx) => (
+                        <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                                onSelect(emoji);
+                                setShow(false);
+                            }}
+                            className="text-2xl hover:scale-125 transition-transform"
+                        >
+                            {emoji}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
 
 const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted }) => {
     const videoRef = useRef(null);
@@ -14,35 +50,59 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
     const [commentText, setCommentText] = useState('');
     const [progress, setProgress] = useState(0);
     const [videoError, setVideoError] = useState(false);
+    const [videoLoaded, setVideoLoaded] = useState(false);
 
-    // FIXED: Autoplay when active
+    // SUPER AGGRESSIVE AUTOPLAY - This will work!
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
 
-        if (isActive) {
-            video.currentTime = 0;
-            video.muted = globalMuted;
-            
-            const playPromise = video.play();
-            if (playPromise !== undefined) {
-                playPromise
-                    .then(() => {
-                        setIsPlaying(true);
-                        setVideoError(false);
-                    })
-                    .catch(error => {
-                        console.log("Autoplay prevented:", error);
-                        // Try unmuted autoplay
-                        video.muted = true;
-                        video.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
-                    });
+        const attemptPlay = async () => {
+            try {
+                video.muted = globalMuted;
+                video.currentTime = 0;
+                
+                // Force load
+                video.load();
+                
+                // Wait a bit for load
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Try to play
+                await video.play();
+                setIsPlaying(true);
+                setVideoError(false);
+                console.log('✅ Video playing:', reel._id);
+            } catch (error) {
+                console.log('❌ Play failed, trying muted:', error);
+                // If failed, try muted
+                try {
+                    video.muted = true;
+                    await video.play();
+                    setIsPlaying(true);
+                    setVideoError(false);
+                    console.log('✅ Video playing (muted):', reel._id);
+                } catch (err2) {
+                    console.error('❌ All play attempts failed:', err2);
+                    setIsPlaying(false);
+                }
             }
-        } else {
+        };
+
+        if (isActive && videoLoaded) {
+            attemptPlay();
+        } else if (!isActive) {
             video.pause();
             setIsPlaying(false);
         }
-    }, [isActive, globalMuted]);
+    }, [isActive, videoLoaded, globalMuted, reel._id]);
+
+    // Handle video loaded
+    const handleLoadedData = () => {
+        console.log('📹 Video loaded:', reel._id);
+        setVideoLoaded(true);
+        setVideoError(false);
+    };
 
     const handleTimeUpdate = () => {
         if (videoRef.current) {
@@ -52,24 +112,29 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
     };
 
     const handleVideoError = (e) => {
-        console.error("Video error:", e);
+        console.error("❌ Video error:", e, reel.url);
         setVideoError(true);
+        setVideoLoaded(false);
     };
 
-    const togglePlay = (e) => {
+    const togglePlay = async (e) => {
         e.stopPropagation();
         const video = videoRef.current;
         if (!video) return;
 
-        if (video.paused) {
-            video.play().then(() => setIsPlaying(true)).catch(console.error);
-        } else {
-            video.pause();
-            setIsPlaying(false);
+        try {
+            if (video.paused) {
+                await video.play();
+                setIsPlaying(true);
+            } else {
+                video.pause();
+                setIsPlaying(false);
+            }
+        } catch (err) {
+            console.error('Toggle play error:', err);
         }
     };
 
-    // FIXED: Like mutation
     const likeMutation = useMutation({
         mutationFn: () => likeReel(reel._id, currentUser.uid),
         onSuccess: () => {
@@ -77,7 +142,6 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
         }
     });
 
-    // FIXED: Comment mutation
     const commentMutation = useMutation({
         mutationFn: async () => {
             if (!commentText.trim()) return;
@@ -96,7 +160,6 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
         }
     };
 
-    // FIXED: Share functionality
     const handleShare = async () => {
         if (navigator.share) {
             try {
@@ -109,7 +172,6 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
                 console.log('Share cancelled');
             }
         } else {
-            // Fallback: Copy to clipboard
             navigator.clipboard.writeText(window.location.href);
             alert('Link copied to clipboard!');
         }
@@ -121,12 +183,12 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
         <div className="relative w-full h-[100dvh] bg-black snap-start snap-always overflow-hidden">
             {/* Desktop Layout */}
             <div className="hidden md:flex h-full items-center justify-center gap-8 px-8">
-                {/* Video Container */}
                 <div className="relative w-full max-w-[450px] h-[90vh] bg-black rounded-3xl overflow-hidden shadow-2xl">
                     {videoError ? (
                         <div className="flex flex-col items-center justify-center h-full gap-4 text-white px-8">
                             <X size={64} className="text-red-500" />
                             <p className="text-lg font-bold text-center">Video failed to load</p>
+                            <p className="text-xs text-gray-400 break-all text-center">{reel.url}</p>
                         </div>
                     ) : (
                         <>
@@ -137,15 +199,21 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
                                 loop
                                 muted={globalMuted}
                                 playsInline
-                                webkit-playsinline="true"
+                                preload="auto"
+                                onLoadedData={handleLoadedData}
                                 onTimeUpdate={handleTimeUpdate}
                                 onError={handleVideoError}
                                 onClick={togglePlay}
-                                crossOrigin="anonymous"
                             />
 
+                            {!videoLoaded && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black">
+                                    <Loader2 className="animate-spin text-white" size={48} />
+                                </div>
+                            )}
+
                             <AnimatePresence>
-                                {!isPlaying && (
+                                {!isPlaying && videoLoaded && (
                                     <motion.div 
                                         initial={{ opacity: 0, scale: 0.8 }} 
                                         animate={{ opacity: 1, scale: 1 }} 
@@ -180,59 +248,36 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
                     )}
                 </div>
 
-                {/* Sidebar - Desktop */}
                 <div className="flex flex-col gap-6 items-center">
-                    <motion.button 
-                        whileTap={{ scale: 0.9 }} 
-                        onClick={(e) => { e.stopPropagation(); likeMutation.mutate(); }}
-                        className="flex flex-col items-center gap-2"
-                    >
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); likeMutation.mutate(); }} className="flex flex-col items-center gap-2">
                         <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-lg ${hasLiked ? 'bg-red-500' : 'bg-white/20 backdrop-blur-md'}`}>
                             <Heart size={28} className={`${hasLiked ? 'fill-white text-white' : 'text-white'}`} />
                         </div>
                         <span className="text-white text-sm font-bold">{reel.likes?.length || 0}</span>
                     </motion.button>
 
-                    <motion.button 
-                        whileTap={{ scale: 0.9 }} 
-                        onClick={(e) => { e.stopPropagation(); setShowComments(true); }}
-                        className="flex flex-col items-center gap-2"
-                    >
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); setShowComments(true); }} className="flex flex-col items-center gap-2">
                         <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg">
                             <MessageCircle size={28} className="text-white" />
                         </div>
                         <span className="text-white text-sm font-bold">{reel.comments?.length || 0}</span>
                     </motion.button>
 
-                    <motion.button 
-                        whileTap={{ scale: 0.9 }}
-                        onClick={handleShare}
-                        className="flex flex-col items-center gap-2"
-                    >
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={handleShare} className="flex flex-col items-center gap-2">
                         <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg">
                             <Share2 size={26} className="text-white" />
                         </div>
                         <span className="text-white text-xs font-bold">Share</span>
                     </motion.button>
 
-                    <motion.div 
-                        animate={{ rotate: isPlaying ? 360 : 0 }} 
-                        transition={{ duration: 3, repeat: isPlaying ? Infinity : 0, ease: "linear" }} 
-                        className="w-14 h-14 rounded-full border-2 border-white overflow-hidden shadow-lg"
-                    >
+                    <motion.div animate={{ rotate: isPlaying ? 360 : 0 }} transition={{ duration: 3, repeat: isPlaying ? Infinity : 0, ease: "linear" }} className="w-14 h-14 rounded-full border-2 border-white overflow-hidden shadow-lg">
                         <img src={reel.userPhoto || `https://ui-avatars.com/api/?name=${reel.userDisplayName}`} className="w-full h-full object-cover" alt="" />
                     </motion.div>
                 </div>
 
-                {/* FIXED: Comments on Right Side for Desktop */}
                 <AnimatePresence>
                     {showComments && (
-                        <motion.div 
-                            initial={{ x: 300, opacity: 0 }}
-                            animate={{ x: 0, opacity: 1 }}
-                            exit={{ x: 300, opacity: 0 }}
-                            className="absolute right-0 top-0 bottom-0 w-[400px] bg-white shadow-2xl flex flex-col z-50"
-                        >
+                        <motion.div initial={{ x: 300, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 300, opacity: 0 }} className="absolute right-0 top-0 bottom-0 w-[400px] bg-white shadow-2xl flex flex-col z-50">
                             <div className="p-4 border-b border-gray-200 flex justify-between items-center">
                                 <h3 className="text-lg font-bold text-black">Comments</h3>
                                 <button onClick={() => setShowComments(false)} className="p-2 hover:bg-gray-100 rounded-full">
@@ -273,11 +318,8 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
                                         placeholder="Add a comment..."
                                         className="flex-1 px-3 py-2 text-sm text-black border border-gray-300 rounded-full outline-none focus:border-black"
                                     />
-                                    <button
-                                        type="submit"
-                                        disabled={!commentText.trim() || commentMutation.isPending}
-                                        className="text-blue-500 font-semibold text-sm disabled:opacity-40 px-4"
-                                    >
+                                    <EmojiPicker onSelect={(emoji) => setCommentText(prev => prev + emoji)} />
+                                    <button type="submit" disabled={!commentText.trim() || commentMutation.isPending} className="text-blue-500 font-semibold text-sm disabled:opacity-40 px-4">
                                         {commentMutation.isPending ? 'Posting...' : 'Post'}
                                     </button>
                                 </div>
@@ -304,15 +346,21 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
                                 loop
                                 muted={globalMuted}
                                 playsInline
-                                webkit-playsinline="true"
+                                preload="auto"
+                                onLoadedData={handleLoadedData}
                                 onTimeUpdate={handleTimeUpdate}
                                 onError={handleVideoError}
                                 onClick={togglePlay}
-                                crossOrigin="anonymous"
                             />
 
+                            {!videoLoaded && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black">
+                                    <Loader2 className="animate-spin text-white" size={48} />
+                                </div>
+                            )}
+
                             <AnimatePresence>
-                                {!isPlaying && (
+                                {!isPlaying && videoLoaded && (
                                     <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                                         <div className="w-20 h-20 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center shadow-2xl">
                                             <Play className="text-white fill-white ml-1" size={40} />
@@ -342,7 +390,6 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
                     )}
                 </div>
 
-                {/* Sidebar Below Video on Mobile */}
                 <div className="bg-black border-t border-white/10 p-4 pb-24">
                     <div className="flex justify-around items-center max-w-md mx-auto">
                         <button onClick={(e) => { e.stopPropagation(); likeMutation.mutate(); }} className="flex flex-col items-center gap-1">
@@ -372,16 +419,9 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
                     </div>
                 </div>
 
-                {/* FIXED: Mobile Comments Fullscreen */}
                 <AnimatePresence>
                     {showComments && (
-                        <motion.div 
-                            initial={{ y: "100%" }}
-                            animate={{ y: 0 }}
-                            exit={{ y: "100%" }}
-                            transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                            className="fixed inset-0 bg-white z-[100] flex flex-col"
-                        >
+                        <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 300 }} className="fixed inset-0 bg-white z-[100] flex flex-col">
                             <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-3 mb-2" />
                             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
                                 <h3 className="text-base font-bold text-black">Comments</h3>
@@ -390,7 +430,7 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
                                 </button>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto px-4 py-3 pb-24">
+                            <div className="flex-1 overflow-y-auto px-4 py-3 pb-32">
                                 {reel.comments && reel.comments.length > 0 ? (
                                     <div className="space-y-4">
                                         {reel.comments.map((comment, idx) => (
@@ -429,11 +469,8 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
                                         placeholder="Add a comment..."
                                         className="flex-1 px-3 py-2 text-sm text-black border border-gray-300 rounded-full outline-none focus:border-black"
                                     />
-                                    <button
-                                        type="submit"
-                                        disabled={!commentText.trim() || commentMutation.isPending}
-                                        className="text-blue-500 font-semibold text-sm disabled:opacity-40 px-4 py-2"
-                                    >
+                                    <EmojiPicker onSelect={(emoji) => setCommentText(prev => prev + emoji)} />
+                                    <button type="submit" disabled={!commentText.trim() || commentMutation.isPending} className="text-blue-500 font-semibold text-sm disabled:opacity-40 px-4 py-2">
                                         {commentMutation.isPending ? 'Posting...' : 'Post'}
                                     </button>
                                 </div>
