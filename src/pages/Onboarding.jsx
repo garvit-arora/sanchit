@@ -97,7 +97,7 @@ const StepTwo = ({ data, updateData, onNext, isLoading }) => (
     </motion.div>
 );
 
-const StepThree = ({ data, onNext, isLoading }) => (
+const StepThree = ({ data, onNext, onResend, isLoading }) => (
     <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -20, opacity: 0 }} className="space-y-6">
         <div className="text-center mb-8">
             <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-green-500/20">
@@ -108,9 +108,18 @@ const StepThree = ({ data, onNext, isLoading }) => (
             <p className="text-xs text-gray-500 mt-4 italic">Click the link in the email, then come back here and click the button below.</p>
         </div>
 
-        <button onClick={onNext} disabled={isLoading} className="w-full bg-green-500 text-black font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:scale-105 transition-transform disabled:opacity-50">
-            {isLoading ? 'Checking...' : "I've Verified! 🚀"}
-        </button>
+        <div className="space-y-3">
+            <button onClick={onNext} disabled={isLoading} className="w-full bg-green-500 text-black font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:scale-105 transition-transform disabled:opacity-50">
+                {isLoading ? 'Checking...' : "I've Verified! 🚀"}
+            </button>
+            
+            <button 
+                onClick={onResend} 
+                className="w-full text-gray-500 text-sm font-bold hover:text-white transition-colors py-2"
+            >
+                Didn't get an email? Resend
+            </button>
+        </div>
     </motion.div>
 );
 
@@ -134,6 +143,7 @@ export default function Onboarding() {
             return;
         }
         setIsLoading(true);
+        console.log("Attempting to send verification link to:", data.collegeEmail);
         try {
              const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
              await axios.put(`${API_BASE}/auth/profile`, {
@@ -148,12 +158,15 @@ export default function Onboarding() {
 
              await verifyBeforeUpdateEmail(currentUser, data.collegeEmail);
              setStep(3);
-             alert("Verification link sent! Check your spam folder if not found.");
         } catch (e) {
-            console.error(e);
-            alert("Error: " + (e.code === 'auth/requires-recent-login' 
-                ? "Recent login required. Please log out and log back in to verify." 
-                : (e.message)));
+            console.error("Firebase Auth Error:", e);
+            if (e.code === 'auth/requires-recent-login') {
+                alert("Security check: Please log out and log back in (Google) to verify your college email.");
+            } else if (e.code === 'auth/too-many-requests') {
+                alert("Too many requests! Please wait a few minutes before resending.");
+            } else {
+                alert("Error: " + e.message);
+            }
         }
         setIsLoading(false);
     };
@@ -163,7 +176,12 @@ export default function Onboarding() {
         try {
             await currentUser.reload();
             const freshUser = firebaseAuth.currentUser;
+            
+            console.log("Current Email in Firebase:", freshUser.email);
+            console.log("Verification Status:", freshUser.emailVerified);
 
+            // When using verifyBeforeUpdateEmail, freshUser.emailVerified becomes true 
+            // and freshUser.email changes to the new email ONLY after the link is clicked.
             if (freshUser.emailVerified && freshUser.email === data.collegeEmail) {
                 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
                 await axios.post(`${API_BASE}/auth/confirm-verification`, { 
@@ -172,9 +190,10 @@ export default function Onboarding() {
                 });
                 window.location.href = '/feed';
             } else {
-                alert("Email not yet verified. Please click the link in your email first.");
+                alert("Still waiting... 🕒 \n\n1. Check your Spam folder.\n2. Ensure you clicked 'Verify' in the email.");
             }
         } catch (e) {
+            console.error("Check verification error:", e);
             alert("Check failed: " + e.message);
         }
         setIsLoading(false);
@@ -193,7 +212,7 @@ export default function Onboarding() {
                  <AnimatePresence mode="wait">
                     {step === 1 && <StepOne key="1" data={data} updateData={updateData} onNext={() => setStep(2)} />}
                     {step === 2 && <StepTwo key="2" data={data} updateData={updateData} onNext={handleSendLink} isLoading={isLoading} />}
-                    {step === 3 && <StepThree key="3" data={data} onNext={handleCheckVerification} isLoading={isLoading} />}
+                    {step === 3 && <StepThree key="3" data={data} onNext={handleCheckVerification} onResend={handleSendLink} isLoading={isLoading} />}
                  </AnimatePresence>
              </div>
         </div>
