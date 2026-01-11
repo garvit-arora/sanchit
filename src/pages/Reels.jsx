@@ -28,50 +28,33 @@ const EmojiPicker = ({ onSelect }) => {
     );
 };
 
-const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, showComments, setShowComments, commentText, setCommentText }) => {
+const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMuted, showComments, setShowComments, commentText, setCommentText }) => {
     const videoRef = useRef(null);
     const queryClient = useQueryClient();
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
 
-    // FIXED: Force video reload to prevent freezing
+    // SIMPLE AUTOPLAY - play when active, pause otherwise
     useEffect(() => {
         const video = videoRef.current;
-        if (!video) return;
-
-        const playVideo = async () => {
-            try {
-                // Force reload the video
-                video.load();
-                
-                // Wait a tiny bit for load
-                await new Promise(resolve => setTimeout(resolve, 50));
-                
-                // Reset to start
-                video.currentTime = 0;
-                
-                // Try to play
-                await video.play();
-                setIsPlaying(true);
-            } catch (error) {
-                // If failed, try muted
-                try {
-                    video.muted = true;
-                    await video.play();
-                    setIsPlaying(true);
-                } catch (e) {
-                    console.error('Play failed:', e);
-                }
-            }
-        };
+        if (!video || !shouldRenderVideo) return;
 
         if (isActive) {
-            playVideo();
+            // Give the browser a moment to instantiate the decoder
+            const playTimeout = setTimeout(() => {
+                video.play()
+                    .then(() => setIsPlaying(true))
+                    .catch(() => {
+                        video.muted = true;
+                        video.play().then(() => setIsPlaying(true));
+                    });
+            }, 100);
+            return () => clearTimeout(playTimeout);
         } else {
             video.pause();
             setIsPlaying(false);
         }
-    }, [isActive]);
+    }, [isActive, shouldRenderVideo]);
 
     // Sync mute
     useEffect(() => {
@@ -144,17 +127,31 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, showComments, s
             {/* Desktop */}
             <div className="hidden md:flex h-full items-center justify-center gap-8 px-8">
                 <div className="relative w-full max-w-[450px] h-[90vh] bg-black rounded-3xl overflow-hidden shadow-2xl">
-                    <video
-                        ref={videoRef}
-                        src={reel.url}
-                        className="w-full h-full object-cover cursor-pointer"
-                        loop
-                        playsInline
-                        onClick={togglePlay}
-                        onTimeUpdate={handleTimeUpdate}
-                    />
+                    {shouldRenderVideo ? (
+                        <video
+                            ref={videoRef}
+                            src={reel.url}
+                            className="w-full h-full object-cover cursor-pointer"
+                            loop
+                            playsInline
+                            muted={globalMuted}
+                            onClick={togglePlay}
+                            onTimeUpdate={handleTimeUpdate}
+                        />
+                    ) : (
+                        <div className="w-full h-full bg-black flex items-center justify-center">
+                            {reel.userPhoto && (
+                                <img 
+                                    src={reel.userPhoto} 
+                                    className="w-full h-full object-cover opacity-30 blur-sm" 
+                                    alt="" 
+                                />
+                            )}
+                            <Loader2 className="animate-spin text-white/20 absolute" size={40} />
+                        </div>
+                    )}
 
-                    {!isPlaying && (
+                    {!isPlaying && shouldRenderVideo && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                             <div className="w-20 h-20 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center">
                                 <Play className="text-white fill-white ml-1" size={40} />
@@ -163,7 +160,7 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, showComments, s
                     )}
 
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/30 z-50">
-                        <div className="h-full bg-white" style={{ width: `${progress}%` }} />
+                        <div className="h-full bg-white transition-all duration-100" style={{ width: `${progress}%` }} />
                     </div>
 
                     <div className="absolute bottom-0 left-0 right-0 p-6 z-30 bg-gradient-to-t from-black/80 to-transparent">
@@ -263,17 +260,31 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, showComments, s
             {/* Mobile */}
             <div className="md:hidden flex flex-col h-full">
                 <div className="relative flex-1 bg-black">
-                    <video
-                        ref={videoRef}
-                        src={reel.url}
-                        className="w-full h-full object-cover cursor-pointer"
-                        loop
-                        playsInline
-                        onClick={togglePlay}
-                        onTimeUpdate={handleTimeUpdate}
-                    />
+                    {shouldRenderVideo ? (
+                        <video
+                            ref={videoRef}
+                            src={reel.url}
+                            className="w-full h-full object-cover cursor-pointer"
+                            loop
+                            playsInline
+                            muted={globalMuted}
+                            onClick={togglePlay}
+                            onTimeUpdate={handleTimeUpdate}
+                        />
+                    ) : (
+                        <div className="w-full h-full bg-black flex items-center justify-center">
+                            {reel.userPhoto && (
+                                <img 
+                                    src={reel.userPhoto} 
+                                    className="w-full h-full object-cover opacity-30 blur-sm" 
+                                    alt="" 
+                                />
+                            )}
+                            <Loader2 className="animate-spin text-white/20 absolute" size={40} />
+                        </div>
+                    )}
 
-                    {!isPlaying && (
+                    {!isPlaying && shouldRenderVideo && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                             <div className="w-20 h-20 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center">
                                 <Play className="text-white fill-white ml-1" size={40} />
@@ -475,6 +486,7 @@ export default function Reels() {
                             key={reel._id} 
                             reel={reel} 
                             isActive={index === activeIndex} 
+                            shouldRenderVideo={Math.abs(index - activeIndex) <= 1}
                             currentUser={currentUser} 
                             globalMuted={globalMuted}
                             showComments={showComments}
