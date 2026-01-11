@@ -5,7 +5,7 @@ import { ArrowRight, Zap, Shield, Globe, Terminal, UserCheck, Flame } from 'luci
 
 const GlitchText = ({ text }) => {
     return (
-        <div className="relative inline-block font-black text-6xl md:text-9xl tracking-tighter text-white mb-6">
+        <div className="relative inline-block font-black text-4xl sm:text-6xl md:text-9xl tracking-tighter text-white mb-6">
             <span className="relative z-10">{text}</span>
             <span className="absolute top-0 left-0 -z-10 text-primary opacity-70 animate-pulse translate-x-1">{text}</span>
             <span className="absolute top-0 left-0 -z-10 text-secondary opacity-70 animate-bounce translate-x-[-2px]">{text}</span>

@@ -11,6 +11,16 @@ export const searchUsers = async (searchTerm) => {
     }
 };
 
+// Fetch all conversations for a user
+export const fetchConversations = async (userId) => {
+    try {
+        const res = await axios.get(`${API_URL}/chat/conversations/${userId}`);
+        return res.data;
+    } catch (e) {
+        return [];
+    }
+};
+
 // Create or Get Chat Room
 export const getChatRoomId = (myUid, otherUid) => {
     if (!otherUid) return 'community_ai_group'; // Default group

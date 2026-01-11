@@ -35,49 +35,51 @@ const PostCard = ({ post }) => {
             className="bg-surface border border-white/5 rounded-3xl overflow-hidden mb-8"
         >
             {/* Header */}
-            <div className="p-5 flex justify-between items-center">
-                <div className="flex items-center gap-4">
+            <div className="p-4 md:p-6 flex justify-between items-center bg-white/[0.02]">
+                <div className="flex items-center gap-3 md:gap-4">
                     {post.authorPhoto ? (
-                        <img src={post.authorPhoto} className="w-12 h-12 rounded-full object-cover" />
+                        <img src={post.authorPhoto} className="w-10 h-10 md:w-14 md:h-14 rounded-2xl object-cover border border-white/10 ring-2 ring-white/5" />
                     ) : (
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-secondary to-primary flex items-center justify-center font-bold text-black text-lg">
+                        <div className="w-10 h-10 md:w-14 md:h-14 rounded-2xl bg-gradient-to-tr from-secondary to-primary flex items-center justify-center font-black text-black text-xl shadow-lg">
                             {post.author?.[0]}
                         </div>
                     )}
                     <div>
                         <div className="flex items-center gap-2">
-                            <h3 className="font-bold text-white text-lg">{post.author}</h3>
-                            {post.isVerified && <BadgeCheck size={18} className="text-blue-500 fill-blue-500/20" />}
+                            <h3 className="font-black text-white md:text-xl tracking-tight leading-none">{post.author}</h3>
+                            {post.isVerified && <BadgeCheck size={16} className="text-blue-500 fill-blue-500/20" />}
                         </div>
-                        <p className="text-gray-500 text-sm font-medium">Just now • Campus</p>
+                        <p className="text-gray-500 text-[10px] md:text-xs font-black uppercase tracking-widest mt-1">
+                            {new Date(post.createdAt || Date.now()).toLocaleDateString([], { month: 'short', day: 'numeric' })} • CAMPUS PULSE
+                        </p>
                     </div>
                 </div>
                 
                 <div className="relative group/menu">
-                    <button className="text-gray-500 hover:text-white p-2 rounded-full hover:bg-white/5 transition-colors"><MoreHorizontal /></button>
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-surface border border-white/10 rounded-2xl shadow-2xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-20 overflow-hidden">
+                    <button className="text-gray-500 hover:text-white p-2 rounded-xl hover:bg-white/5 transition-all"><MoreHorizontal /></button>
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-20 overflow-hidden backdrop-blur-3xl">
                         {post.authorId === currentUser?.uid ? (
                             <button 
                                 onClick={() => {
-                                    if(window.confirm("Delete this masterpiece?")) {
+                                    if(window.confirm("Delete this drop?")) {
                                         deletePost(post._id).then(() => queryClient.invalidateQueries(['feed']));
                                     }
                                 }}
-                                className="w-full px-4 py-3 text-left text-red-500 hover:bg-red-500/10 flex items-center gap-2 font-bold transition-colors"
+                                className="w-full px-5 py-4 text-left text-red-500 hover:bg-red-500/10 flex items-center gap-3 font-black text-sm transition-colors"
                             >
-                                <Trash2 size={18} /> Delete Post
+                                <Trash2 size={18} /> ERASE DROP
                             </button>
                         ) : (
                             <button 
                                 onClick={() => {
-                                    const reason = window.prompt("Why are you reporting this?");
+                                    const reason = window.prompt("Why are you reporting this frequency?");
                                     if(reason) {
-                                        reportPost(post._id, currentUser.uid, reason).then(() => alert("Reported to mods."));
+                                        reportPost(post._id, currentUser.uid, reason).then(() => alert("Reported to moderators."));
                                     }
                                 }}
-                                className="w-full px-4 py-3 text-left text-gray-400 hover:bg-white/5 flex items-center gap-2 font-bold transition-colors"
+                                className="w-full px-5 py-4 text-left text-gray-400 hover:bg-white/5 flex items-center gap-3 font-black text-sm transition-colors"
                             >
-                                <ShieldAlert size={18} /> Report Post
+                                <ShieldAlert size={18} /> REPORT
                             </button>
                         )}
                     </div>
@@ -85,23 +87,31 @@ const PostCard = ({ post }) => {
             </div>
 
             {/* Content */}
-            <div className="px-5 pb-4">
-                <p className="text-gray-200 text-lg leading-relaxed whitespace-pre-wrap">{post.content}</p>
+            <div className="px-5 md:px-8 py-4">
+                <p className="text-gray-200 text-base md:text-xl font-medium leading-relaxed whitespace-pre-wrap">{post.content}</p>
             </div>
 
             {/* Image/Video Content */}
             {post.video ? (
-                <div className="w-full aspect-video bg-black relative group/video">
-                    <video 
-                        src={post.video} 
-                        className="w-full h-full object-contain"
-                        controls
-                        playsInline
-                    />
+                <div className="w-full aspect-video bg-black relative mb-2">
+                    {post.video.includes('youtube.com') || post.video.includes('youtu.be') ? (
+                        <iframe 
+                            src={`https://www.youtube.com/embed/${post.video.split('v=')[1]?.split('&')[0] || post.video.split('/').pop()}`}
+                            className="w-full h-full border-none"
+                            allowFullScreen
+                        />
+                    ) : (
+                        <video 
+                            src={post.video} 
+                            className="w-full h-full object-contain"
+                            controls
+                            playsInline
+                        />
+                    )}
                 </div>
             ) : post.image && (
-                <div className="w-full max-h-[500px] bg-gray-900 relative">
-                     <img src={post.image} alt="Post" className="w-full h-full object-contain" />
+                <div className="w-full max-h-[600px] bg-gray-900 border-y border-white/5 overflow-hidden">
+                     <img src={post.image} alt="Drop Visual" className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" />
                 </div>
             )}
 
