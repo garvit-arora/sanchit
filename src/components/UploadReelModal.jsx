@@ -1,91 +1,125 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Upload, Film, Link as LinkIcon, AlertCircle, AlertTriangle } from 'lucide-react';
+import { X, Upload, Film, Check, Music, Search, ChevronRight } from 'lucide-react';
+
+// Popular song library
+const SONG_LIBRARY = [
+    { id: 1, title: "Blinding Lights", artist: "The Weeknd", duration: "3:20" },
+    { id: 2, title: "Shape of You", artist: "Ed Sheeran", duration: "3:53" },
+    { id: 3, title: "Levitating", artist: "Dua Lipa", duration: "3:23" },
+    { id: 4, title: "Peaches", artist: "Justin Bieber", duration: "3:18" },
+    { id: 5, title: "Save Your Tears", artist: "The Weeknd", duration: "3:35" },
+    { id: 6, title: "Good 4 U", artist: "Olivia Rodrigo", duration: "2:58" },
+    { id: 7, title: "Stay", artist: "The Kid LAROI & Justin Bieber", duration: "2:21" },
+    { id: 8, title: "Heat Waves", artist: "Glass Animals", duration: "3:58" },
+    { id: 9, title: "As It Was", artist: "Harry Styles", duration: "2:47" },
+    { id: 10, title: "Anti-Hero", artist: "Taylor Swift", duration: "3:20" },
+    { id: 11, title: "Flowers", artist: "Miley Cyrus", duration: "3:20" },
+    { id: 12, title: "Calm Down", artist: "Rema & Selena Gomez", duration: "3:59" },
+    { id: 13, title: "Unholy", artist: "Sam Smith & Kim Petras", duration: "2:36" },
+    { id: 14, title: "Cruel Summer", artist: "Taylor Swift", duration: "2:58" },
+    { id: 15, title: "Vampire", artist: "Olivia Rodrigo", duration: "3:39" },
+    { id: 16, title: "Sunflower", artist: "Post Malone & Swae Lee", duration: "2:38" },
+    { id: 17, title: "Dance Monkey", artist: "Tones and I", duration: "3:29" },
+    { id: 18, title: "Watermelon Sugar", artist: "Harry Styles", duration: "2:54" },
+    { id: 19, title: "Circles", artist: "Post Malone", duration: "3:35" },
+    { id: 20, title: "Don't Start Now", artist: "Dua Lipa", duration: "3:03" },
+    { id: 21, title: "Señorita", artist: "Shawn Mendes & Camila Cabello", duration: "3:10" },
+    { id: 22, title: "Bad Guy", artist: "Billie Eilish", duration: "3:14" },
+    { id: 23, title: "Memories", artist: "Maroon 5", duration: "3:09" },
+    { id: 24, title: "Believer", artist: "Imagine Dragons", duration: "3:24" },
+    { id: 25, title: "Perfect", artist: "Ed Sheeran", duration: "4:23" },
+    { id: 26, title: "Someone You Loved", artist: "Lewis Capaldi", duration: "3:02" },
+    { id: 27, title: "Shallow", artist: "Lady Gaga & Bradley Cooper", duration: "3:35" },
+    { id: 28, title: "Happier", artist: "Marshmello & Bastille", duration: "3:34" },
+    { id: 29, title: "Without Me", artist: "Halsey", duration: "3:21" },
+    { id: 30, title: "7 Rings", artist: "Ariana Grande", duration: "2:58" },
+];
 
 export default function UploadReelModal({ isOpen, onClose, onUpload }) {
-    const [url, setUrl] = useState('');
-    const [uploadMode, setUploadMode] = useState('file'); // Default to 'file' for better UX
+    const [step, setStep] = useState(1); // 1: Video, 2: Caption, 3: Song
+    const [videoFile, setVideoFile] = useState(null);
+    const [videoPreview, setVideoPreview] = useState(null);
     const [description, setDescription] = useState('');
+    const [selectedSong, setSelectedSong] = useState(null);
+    const [songSearch, setSongSearch] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
-            // Check size (max 50MB)
             if (file.size > 50 * 1024 * 1024) {
                 setError("File too large. Maximum size is 50MB.");
                 return;
             }
             
-            // Check if it's a video
             if (!file.type.startsWith('video/')) {
                 setError("Please select a video file.");
                 return;
             }
 
             setError('');
+            setVideoFile(file);
+            
             const reader = new FileReader();
             reader.onloadend = () => {
-                setUrl(reader.result);
+                setVideoPreview(reader.result);
+                setStep(2); // Move to caption step
             };
             reader.readAsDataURL(file);
         }
     };
 
-    const validateUrl = (urlString) => {
-        // Check if it's a YouTube link
-        if (urlString.includes('youtube.com') || urlString.includes('youtu.be')) {
-            setError('YouTube links are not supported. Please upload a video file or use a direct video link (.mp4, .webm)');
-            return false;
-        }
-
-        // Check if it ends with a video extension
-        const videoExtensions = ['.mp4', '.webm', '.mov', '.avi', '.mkv', '.m4v'];
-        const hasVideoExtension = videoExtensions.some(ext => urlString.toLowerCase().includes(ext));
-        
-        if (!hasVideoExtension) {
-            setError('Please use a direct video link ending with .mp4, .webm, etc.');
-            return false;
-        }
-
-        setError('');
-        return true;
+    const handleCaptionNext = () => {
+        setStep(3); // Move to song selection
     };
 
-    const handleUrlChange = (e) => {
-        const newUrl = e.target.value;
-        setUrl(newUrl);
-        if (newUrl) {
-            validateUrl(newUrl);
-        } else {
-            setError('');
-        }
+    const handleSkipSong = async () => {
+        await handleFinalSubmit(null);
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!url) return;
+    const handleSelectSong = async (song) => {
+        setSelectedSong(song);
+        await handleFinalSubmit(song);
+    };
 
-        // Final validation for URL mode
-        if (uploadMode === 'link' && !validateUrl(url)) {
-            return;
-        }
+    const handleFinalSubmit = async (song) => {
+        if (!videoPreview) return;
         
         setIsLoading(true);
         setError('');
         try {
-            await onUpload(url, description);
-            setUrl('');
+            await onUpload(videoPreview, description, song);
+            // Reset
+            setStep(1);
+            setVideoFile(null);
+            setVideoPreview(null);
             setDescription('');
+            setSelectedSong(null);
+            setSongSearch('');
             setError('');
-            onClose();
         } catch (err) {
             console.error(err);
             setError(err.message || 'Upload failed. Please try again.');
-        } finally {
             setIsLoading(false);
         }
+    };
+
+    const filteredSongs = SONG_LIBRARY.filter(song =>
+        song.title.toLowerCase().includes(songSearch.toLowerCase()) ||
+        song.artist.toLowerCase().includes(songSearch.toLowerCase())
+    );
+
+    const handleClose = () => {
+        setStep(1);
+        setVideoFile(null);
+        setVideoPreview(null);
+        setDescription('');
+        setSelectedSong(null);
+        setSongSearch('');
+        setError('');
+        onClose();
     };
 
     if (!isOpen) return null;
@@ -93,141 +127,138 @@ export default function UploadReelModal({ isOpen, onClose, onUpload }) {
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
             <motion.div 
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                className="bg-gradient-to-br from-gray-900 to-black border border-white/10 w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
             >
                 {/* Header */}
-                <div className="p-6 border-b border-white/10 flex justify-between items-center bg-white/5">
-                    <h2 className="text-2xl font-black text-white flex items-center gap-3">
-                        <Film className="text-yellow-400" size={28} />
-                        Upload Reel
+                <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+                    <h2 className="text-2xl font-black flex items-center gap-3">
+                        <Film className="text-black" size={28} />
+                        {step === 1 && "Upload Video"}
+                        {step === 2 && "Add Caption"}
+                        {step === 3 && "Choose Song"}
                     </h2>
-                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors">
+                    <button onClick={handleClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                         <X size={24} />
                     </button>
                 </div>
 
-                {/* Important Notice */}
-                <div className="mx-6 mt-6 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-2xl">
-                    <div className="flex gap-3">
-                        <AlertTriangle className="text-yellow-400 flex-shrink-0" size={20} />
-                        <div>
-                            <p className="text-yellow-200 text-sm font-bold mb-1">Important:</p>
-                            <ul className="text-yellow-100/80 text-xs space-y-1">
-                                <li>• YouTube/Instagram links are NOT supported</li>
-                                <li>• Upload video files directly (recommended)</li>
-                                <li>• Or use direct video links (.mp4, .webm)</li>
-                                <li>• Vertical videos (9:16) work best!</li>
-                            </ul>
-                        </div>
+                {/* Progress Steps */}
+                <div className="px-6 py-4 bg-gray-50 flex items-center justify-center gap-2">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= 1 ? 'bg-black text-white' : 'bg-gray-300 text-gray-600'}`}>
+                        {step > 1 ? <Check size={16} /> : '1'}
+                    </div>
+                    <div className={`w-12 h-0.5 ${step >= 2 ? 'bg-black' : 'bg-gray-300'}`} />
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= 2 ? 'bg-black text-white' : 'bg-gray-300 text-gray-600'}`}>
+                        {step > 2 ? <Check size={16} /> : '2'}
+                    </div>
+                    <div className={`w-12 h-0.5 ${step >= 3 ? 'bg-black' : 'bg-gray-300'}`} />
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= 3 ? 'bg-black text-white' : 'bg-gray-300 text-gray-600'}`}>
+                        3
                     </div>
                 </div>
 
-                {/* Mode Toggle */}
-                <div className="flex p-2 bg-black/30 m-6 rounded-2xl">
-                    <button 
-                        onClick={() => { setUploadMode('file'); setUrl(''); setError(''); }}
-                        className={`flex-1 py-3 rounded-xl font-bold transition-all ${uploadMode === 'file' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}
-                    >
-                        📁 Upload File
-                    </button>
-                    <button 
-                        onClick={() => { setUploadMode('link'); setUrl(''); setError(''); }}
-                        className={`flex-1 py-3 rounded-xl font-bold transition-all ${uploadMode === 'link' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}
-                    >
-                        🔗 Video Link
-                    </button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-5">
-                    {/* Upload Area */}
-                    {uploadMode === 'file' ? (
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto p-6">
+                    {/* Step 1: Upload Video */}
+                    {step === 1 && (
                         <div>
-                            <label className="text-gray-300 text-sm font-bold mb-2 block">Select Video File</label>
-                            <div className="relative border-2 border-dashed border-white/20 rounded-2xl p-10 hover:border-yellow-400/50 transition-colors text-center bg-white/5 cursor-pointer">
+                            <div className="border-2 border-dashed border-gray-300 rounded-2xl p-12 text-center hover:border-black transition-colors cursor-pointer relative">
                                 <input 
                                     type="file" 
                                     accept="video/mp4,video/webm,video/mov,video/avi"
-                                    required
                                     onChange={handleFileChange}
                                     className="absolute inset-0 opacity-0 cursor-pointer"
                                 />
-                                <Upload className="mx-auto text-gray-400 mb-3" size={40} />
-                                <p className="text-white font-bold mb-1">Click to upload video</p>
-                                <p className="text-gray-400 text-sm">MP4, WEBM, MOV (max 50MB)</p>
-                                {url && <p className="text-yellow-400 text-sm mt-3 font-bold">✓ Video Selected</p>}
+                                <Upload className="mx-auto text-gray-400 mb-4" size={48} />
+                                <p className="text-lg font-bold mb-2">Click to upload video</p>
+                                <p className="text-gray-500 text-sm">MP4, WEBM, MOV (max 50MB)</p>
+                                <p className="text-gray-400 text-xs mt-2">Vertical videos (9:16) work best!</p>
                             </div>
+                            {error && (
+                                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                    <p className="text-red-600 text-sm">{error}</p>
+                                </div>
+                            )}
                         </div>
-                    ) : (
-                        <div>
-                            <label className="text-gray-300 text-sm font-bold mb-2 block">Direct Video URL</label>
-                            <div className="relative">
-                                <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={20} />
-                                <input 
-                                    type="url" 
-                                    required
-                                    value={url}
-                                    onChange={handleUrlChange}
-                                    className="w-full bg-black/50 border border-white/20 rounded-2xl py-4 pl-12 pr-4 text-white outline-none focus:border-yellow-400 transition-all"
-                                    placeholder="https://example.com/video.mp4"
+                    )}
+
+                    {/* Step 2: Add Caption */}
+                    {step === 2 && (
+                        <div className="space-y-4">
+                            {videoPreview && (
+                                <div className="relative w-full h-64 bg-black rounded-2xl overflow-hidden">
+                                    <video src={videoPreview} className="w-full h-full object-cover" />
+                                    <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                                        <Check size={12} className="inline mr-1" />
+                                        Video uploaded
+                                    </div>
+                                </div>
+                            )}
+                            <div>
+                                <label className="text-sm font-bold mb-2 block">Caption</label>
+                                <textarea 
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    className="w-full border-2 border-gray-300 rounded-2xl p-4 outline-none focus:border-black transition-all min-h-[120px] resize-none"
+                                    placeholder="Write something cool..."
+                                    autoFocus
                                 />
                             </div>
-                            <p className="text-gray-500 text-xs mt-2 ml-2">
-                                Example: https://example.com/myvideo.mp4
-                            </p>
+                            <button 
+                                onClick={handleCaptionNext}
+                                className="w-full bg-black text-white font-bold py-4 rounded-2xl hover:bg-gray-800 transition-all flex items-center justify-center gap-2"
+                            >
+                                Next <ChevronRight size={20} />
+                            </button>
                         </div>
                     )}
 
-                    {/* Error Message */}
-                    {error && (
-                        <motion.div 
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="p-4 bg-red-500/10 border border-red-500/30 rounded-2xl"
-                        >
-                            <div className="flex gap-3">
-                                <AlertCircle className="text-red-400 flex-shrink-0" size={20} />
-                                <p className="text-red-200 text-sm font-medium">{error}</p>
+                    {/* Step 3: Choose Song */}
+                    {step === 3 && (
+                        <div className="space-y-4">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                                <input 
+                                    type="text"
+                                    value={songSearch}
+                                    onChange={(e) => setSongSearch(e.target.value)}
+                                    placeholder="Search songs..."
+                                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-2xl outline-none focus:border-black transition-all"
+                                />
                             </div>
-                        </motion.div>
+
+                            <div className="max-h-[300px] overflow-y-auto space-y-2">
+                                {filteredSongs.map(song => (
+                                    <button
+                                        key={song.id}
+                                        onClick={() => handleSelectSong(song)}
+                                        disabled={isLoading}
+                                        className="w-full p-3 border border-gray-200 rounded-xl hover:border-black hover:bg-gray-50 transition-all text-left flex items-center gap-3 disabled:opacity-50"
+                                    >
+                                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                            <Music size={20} className="text-white" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="font-bold text-sm">{song.title}</p>
+                                            <p className="text-xs text-gray-500">{song.artist} • {song.duration}</p>
+                                        </div>
+                                        <ChevronRight size={20} className="text-gray-400" />
+                                    </button>
+                                ))}
+                            </div>
+
+                            <button 
+                                onClick={handleSkipSong}
+                                disabled={isLoading}
+                                className="w-full border-2 border-gray-300 text-black font-bold py-4 rounded-2xl hover:bg-gray-100 transition-all disabled:opacity-50"
+                            >
+                                {isLoading ? 'Uploading...' : 'Skip (No Song)'}
+                            </button>
+                        </div>
                     )}
-
-                    {/* Caption */}
-                    <div>
-                        <label className="text-gray-300 text-sm font-bold mb-2 block">Caption (Optional)</label>
-                        <textarea 
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            className="w-full bg-black/50 border border-white/20 rounded-2xl p-4 text-white outline-none focus:border-yellow-400 transition-all min-h-[100px] resize-none"
-                            placeholder="Write something cool..."
-                        />
-                    </div>
-
-                    {/* Submit Button */}
-                    <button 
-                        type="submit"
-                        disabled={isLoading || !url || !!error}
-                        className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-black py-4 rounded-2xl flex items-center justify-center gap-3 hover:shadow-lg hover:shadow-yellow-500/50 transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isLoading ? (
-                            <>
-                                <motion.div 
-                                    animate={{ rotate: 360 }}
-                                    transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-                                >
-                                    <Upload size={20} />
-                                </motion.div>
-                                Uploading...
-                            </>
-                        ) : (
-                            <>
-                                <Upload size={20} />
-                                Upload Reel
-                            </>
-                        )}
-                    </button>
-                </form>
+                </div>
             </motion.div>
         </div>
     );

@@ -133,13 +133,14 @@ export const addReelComment = async (reelId, text, author, authorId) => {
     return res.data;
 };
 
-export const uploadReel = async (url, description, user) => {
+export const uploadReel = async (url, description, user, song = null) => {
     const res = await axios.post(`${API_URL}/reels`, {
         url,
         description,
         userId: user.uid,
         userDisplayName: user.displayName,
-        userPhoto: user.photoURL
+        userPhoto: user.photoURL,
+        song: song
     });
     return res.data;
 };

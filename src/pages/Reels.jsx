@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MessageCircle, Volume2, VolumeX, Play, Plus, Upload, Loader2, X, Send, Share2 } from 'lucide-react';
+import { Heart, MessageCircle, Volume2, VolumeX, Play, Plus, Upload, Loader2, X, Send, Share2, Music } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchReels, uploadReel, likeReel, addReelComment } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -15,7 +15,6 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
     const [progress, setProgress] = useState(0);
     const [videoError, setVideoError] = useState(false);
 
-    // Auto-play when active
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
@@ -41,7 +40,6 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
         }
     }, [isActive]);
 
-    // Sync mute state
     useEffect(() => {
         if (videoRef.current) {
             videoRef.current.muted = globalMuted;
@@ -99,136 +97,184 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
     const hasLiked = reel.likes?.includes(currentUser?.uid);
 
     return (
-        <div className="relative w-full h-[100dvh] bg-black snap-start snap-always overflow-hidden flex items-center justify-center">
-            {/* 9:16 Video Container - Instagram Style */}
-            <div className="relative w-full max-w-[450px] h-full bg-black">
-                {videoError ? (
-                    <div className="flex flex-col items-center justify-center h-full gap-4 text-white px-8">
-                        <X size={64} className="text-red-500" />
-                        <p className="text-lg font-bold text-center">Video failed to load</p>
-                        <p className="text-sm text-gray-400 text-center break-all">URL: {reel.url}</p>
-                        <p className="text-xs text-gray-500 text-center">Please use a direct video link (.mp4, .webm, etc.)</p>
-                    </div>
-                ) : (
-                    <>
-                        {/* Video Element */}
-                        <video
-                            ref={videoRef}
-                            src={reel.url}
-                            className="w-full h-full object-cover"
-                            loop
-                            muted={globalMuted}
-                            playsInline
-                            webkit-playsinline="true"
-                            onTimeUpdate={handleTimeUpdate}
-                            onError={handleVideoError}
-                            onClick={togglePlay}
-                            crossOrigin="anonymous"
-                        />
-
-                        {/* Play/Pause Overlay */}
-                        <AnimatePresence>
-                            {!isPlaying && (
-                                <motion.div 
-                                    initial={{ opacity: 0, scale: 0.8 }} 
-                                    animate={{ opacity: 1, scale: 1 }} 
-                                    exit={{ opacity: 0, scale: 0.8 }}
-                                    className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
-                                >
-                                    <div className="w-20 h-20 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center shadow-2xl">
-                                        <Play className="text-white fill-white ml-1" size={40} />
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-
-                        {/* Progress Bar */}
-                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/30 z-50">
-                            <div 
-                                className="h-full bg-white transition-all duration-100"
-                                style={{ width: `${progress}%` }}
+        <div className="relative w-full h-[100dvh] bg-black snap-start snap-always overflow-hidden">
+            {/* Desktop Layout - Side by Side */}
+            <div className="hidden md:flex h-full items-center justify-center gap-8 px-8">
+                {/* Video Container */}
+                <div className="relative w-full max-w-[450px] h-[90vh] bg-black rounded-3xl overflow-hidden shadow-2xl">
+                    {videoError ? (
+                        <div className="flex flex-col items-center justify-center h-full gap-4 text-white px-8">
+                            <X size={64} className="text-red-500" />
+                            <p className="text-lg font-bold text-center">Video failed to load</p>
+                        </div>
+                    ) : (
+                        <>
+                            <video
+                                ref={videoRef}
+                                src={reel.url}
+                                className="w-full h-full object-cover"
+                                loop
+                                muted={globalMuted}
+                                playsInline
+                                webkit-playsinline="true"
+                                onTimeUpdate={handleTimeUpdate}
+                                onError={handleVideoError}
+                                onClick={togglePlay}
+                                crossOrigin="anonymous"
                             />
-                        </div>
 
-                        {/* Top Gradient Overlay */}
-                        <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-black/60 to-transparent pointer-events-none z-20" />
-                        
-                        {/* Bottom Gradient Overlay */}
-                        <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none z-20" />
+                            <AnimatePresence>
+                                {!isPlaying && (
+                                    <motion.div 
+                                        initial={{ opacity: 0, scale: 0.8 }} 
+                                        animate={{ opacity: 1, scale: 1 }} 
+                                        exit={{ opacity: 0, scale: 0.8 }}
+                                        className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
+                                    >
+                                        <div className="w-20 h-20 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center shadow-2xl">
+                                            <Play className="text-white fill-white ml-1" size={40} />
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
 
-                        {/* Right Side Actions - VISIBLE SIDEBAR */}
-                        <div className="absolute right-3 bottom-24 flex flex-col gap-5 z-40">
-                            {/* Like Button */}
-                            <motion.button 
-                                whileTap={{ scale: 0.9 }}
-                                onClick={(e) => { e.stopPropagation(); likeMutation.mutate(); }}
-                                className="flex flex-col items-center gap-1"
-                            >
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-lg ${
-                                    hasLiked ? 'bg-red-500' : 'bg-white/20 backdrop-blur-md'
-                                }`}>
-                                    <Heart size={28} className={`${hasLiked ? 'fill-white text-white' : 'text-white'}`} />
-                                </div>
-                                <span className="text-white text-xs font-bold drop-shadow-lg">{reel.likes?.length || 0}</span>
-                            </motion.button>
-
-                            {/* Comment Button */}
-                            <motion.button 
-                                whileTap={{ scale: 0.9 }}
-                                onClick={(e) => { e.stopPropagation(); setShowComments(true); }}
-                                className="flex flex-col items-center gap-1"
-                            >
-                                <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg">
-                                    <MessageCircle size={28} className="text-white" />
-                                </div>
-                                <span className="text-white text-xs font-bold drop-shadow-lg">{reel.comments?.length || 0}</span>
-                            </motion.button>
-
-                            {/* Share Button */}
-                            <motion.button 
-                                whileTap={{ scale: 0.9 }}
-                                onClick={(e) => e.stopPropagation()}
-                                className="flex flex-col items-center gap-1"
-                            >
-                                <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg">
-                                    <Share2 size={26} className="text-white" />
-                                </div>
-                            </motion.button>
-
-                            {/* Profile Picture (rotating) */}
-                            <motion.div
-                                animate={{ rotate: isPlaying ? 360 : 0 }}
-                                transition={{ duration: 3, repeat: isPlaying ? Infinity : 0, ease: "linear" }}
-                                className="w-12 h-12 rounded-full border-2 border-white overflow-hidden shadow-lg"
-                            >
-                                <img 
-                                    src={reel.userPhoto || `https://ui-avatars.com/api/?name=${reel.userDisplayName}`} 
-                                    className="w-full h-full object-cover" 
-                                    alt={reel.userDisplayName}
-                                />
-                            </motion.div>
-                        </div>
-
-                        {/* Bottom Info */}
-                        <div className="absolute bottom-0 left-0 right-16 p-4 pb-6 z-30">
-                            <div className="flex items-center gap-2 mb-2">
-                                <h4 className="text-white font-bold text-base drop-shadow-lg">@{reel.userDisplayName}</h4>
-                                <button className="px-3 py-1 bg-transparent border border-white rounded-md text-white text-xs font-bold">
-                                    Follow
-                                </button>
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/30 z-50">
+                                <div className="h-full bg-white transition-all duration-100" style={{ width: `${progress}%` }} />
                             </div>
-                            {reel.description && (
-                                <p className="text-white text-sm drop-shadow-lg line-clamp-2 mb-1">{reel.description}</p>
-                            )}
-                            <p className="text-gray-300 text-xs drop-shadow-lg">
-                                {new Date(reel.createdAt).toLocaleDateString()}
-                            </p>
+
+                            <div className="absolute bottom-0 left-0 right-0 p-6 z-30 bg-gradient-to-t from-black/80 to-transparent">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <img src={reel.userPhoto || `https://ui-avatars.com/api/?name=${reel.userDisplayName}`} className="w-10 h-10 rounded-full border-2 border-white" alt="" />
+                                    <h4 className="text-white font-bold text-base">@{reel.userDisplayName}</h4>
+                                </div>
+                                {reel.description && <p className="text-white text-sm line-clamp-2">{reel.description}</p>}
+                                {reel.song && (
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <Music size={14} className="text-white" />
+                                        <p className="text-white text-xs">{reel.song.title} - {reel.song.artist}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                {/* Sidebar - Always Visible on Desktop */}
+                <div className="flex flex-col gap-6 items-center">
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={() => likeMutation.mutate()} className="flex flex-col items-center gap-2">
+                        <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-lg ${hasLiked ? 'bg-red-500' : 'bg-white/20 backdrop-blur-md'}`}>
+                            <Heart size={28} className={`${hasLiked ? 'fill-white text-white' : 'text-white'}`} />
                         </div>
-                    </>
-                )}
+                        <span className="text-white text-sm font-bold">{reel.likes?.length || 0}</span>
+                    </motion.button>
+
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowComments(true)} className="flex flex-col items-center gap-2">
+                        <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg">
+                            <MessageCircle size={28} className="text-white" />
+                        </div>
+                        <span className="text-white text-sm font-bold">{reel.comments?.length || 0}</span>
+                    </motion.button>
+
+                    <motion.button whileTap={{ scale: 0.9 }} className="flex flex-col items-center gap-2">
+                        <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg">
+                            <Share2 size={26} className="text-white" />
+                        </div>
+                    </motion.button>
+
+                    <motion.div animate={{ rotate: isPlaying ? 360 : 0 }} transition={{ duration: 3, repeat: isPlaying ? Infinity : 0, ease: "linear" }} className="w-14 h-14 rounded-full border-2 border-white overflow-hidden shadow-lg">
+                        <img src={reel.userPhoto || `https://ui-avatars.com/api/?name=${reel.userDisplayName}`} className="w-full h-full object-cover" alt="" />
+                    </motion.div>
+                </div>
             </div>
 
-            {/* Comments Drawer - Instagram Style */}
+            {/* Mobile Layout - Stacked */}
+            <div className="md:hidden flex flex-col h-full">
+                {/* Video */}
+                <div className="relative flex-1 bg-black">
+                    {videoError ? (
+                        <div className="flex flex-col items-center justify-center h-full gap-4 text-white px-8">
+                            <X size={64} className="text-red-500" />
+                            <p className="text-lg font-bold text-center">Video failed to load</p>
+                        </div>
+                    ) : (
+                        <>
+                            <video
+                                ref={videoRef}
+                                src={reel.url}
+                                className="w-full h-full object-cover"
+                                loop
+                                muted={globalMuted}
+                                playsInline
+                                webkit-playsinline="true"
+                                onTimeUpdate={handleTimeUpdate}
+                                onError={handleVideoError}
+                                onClick={togglePlay}
+                                crossOrigin="anonymous"
+                            />
+
+                            <AnimatePresence>
+                                {!isPlaying && (
+                                    <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                                        <div className="w-20 h-20 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center shadow-2xl">
+                                            <Play className="text-white fill-white ml-1" size={40} />
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/30 z-50">
+                                <div className="h-full bg-white transition-all duration-100" style={{ width: `${progress}%` }} />
+                            </div>
+
+                            <div className="absolute bottom-0 left-0 right-0 p-4 z-30 bg-gradient-to-t from-black/90 to-transparent">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <img src={reel.userPhoto || `https://ui-avatars.com/api/?name=${reel.userDisplayName}`} className="w-8 h-8 rounded-full border-2 border-white" alt="" />
+                                    <h4 className="text-white font-bold text-sm">@{reel.userDisplayName}</h4>
+                                </div>
+                                {reel.description && <p className="text-white text-xs line-clamp-2 mb-1">{reel.description}</p>}
+                                {reel.song && (
+                                    <div className="flex items-center gap-2">
+                                        <Music size={12} className="text-white" />
+                                        <p className="text-white text-xs">{reel.song.title} - {reel.song.artist}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                {/* Sidebar Below Video on Mobile */}
+                <div className="bg-black border-t border-white/10 p-4 pb-24">
+                    <div className="flex justify-around items-center max-w-md mx-auto">
+                        <button onClick={() => likeMutation.mutate()} className="flex flex-col items-center gap-1">
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${hasLiked ? 'bg-red-500' : 'bg-white/20'}`}>
+                                <Heart size={24} className={`${hasLiked ? 'fill-white text-white' : 'text-white'}`} />
+                            </div>
+                            <span className="text-white text-xs font-bold">{reel.likes?.length || 0}</span>
+                        </button>
+
+                        <button onClick={() => setShowComments(true)} className="flex flex-col items-center gap-1">
+                            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                                <MessageCircle size={24} className="text-white" />
+                            </div>
+                            <span className="text-white text-xs font-bold">{reel.comments?.length || 0}</span>
+                        </button>
+
+                        <button className="flex flex-col items-center gap-1">
+                            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                                <Share2 size={22} className="text-white" />
+                            </div>
+                            <span className="text-white text-xs font-bold">Share</span>
+                        </button>
+
+                        <motion.div animate={{ rotate: isPlaying ? 360 : 0 }} transition={{ duration: 3, repeat: isPlaying ? Infinity : 0, ease: "linear" }} className="w-12 h-12 rounded-full border-2 border-white overflow-hidden">
+                            <img src={reel.userPhoto || `https://ui-avatars.com/api/?name=${reel.userDisplayName}`} className="w-full h-full object-cover" alt="" />
+                        </motion.div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Comments Drawer */}
             <AnimatePresence>
                 {showComments && (
                     <motion.div 
@@ -236,12 +282,9 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
                         animate={{ y: 0 }}
                         exit={{ y: "100%" }}
                         transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                        className="absolute inset-0 bg-white z-50 flex flex-col rounded-t-3xl overflow-hidden"
+                        className="fixed inset-0 bg-white z-[100] flex flex-col"
                     >
-                        {/* Drag Handle */}
                         <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-3 mb-2" />
-
-                        {/* Header */}
                         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
                             <h3 className="text-base font-bold">Comments</h3>
                             <button onClick={() => setShowComments(false)} className="p-1">
@@ -249,8 +292,7 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
                             </button>
                         </div>
 
-                        {/* Comments List */}
-                        <div className="flex-1 overflow-y-auto px-4 py-3">
+                        <div className="flex-1 overflow-y-auto px-4 py-3 pb-24">
                             {reel.comments && reel.comments.length > 0 ? (
                                 <div className="space-y-4">
                                     {reel.comments.map((comment, idx) => (
@@ -264,15 +306,9 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
                                                     {comment.text}
                                                 </p>
                                                 <div className="flex items-center gap-4 mt-1.5">
-                                                    <span className="text-xs text-gray-500">
-                                                        {new Date(comment.createdAt).toLocaleDateString()}
-                                                    </span>
-                                                    <button className="text-xs text-gray-500 font-semibold">Reply</button>
+                                                    <span className="text-xs text-gray-500">{new Date(comment.createdAt).toLocaleDateString()}</span>
                                                 </div>
                                             </div>
-                                            <button className="text-gray-400 hover:text-red-500 transition-colors">
-                                                <Heart size={14} />
-                                            </button>
                                         </div>
                                     ))}
                                 </div>
@@ -285,9 +321,9 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
                             )}
                         </div>
 
-                        {/* Comment Input */}
-                        <form onSubmit={handleCommentSubmit} className="p-3 border-t border-gray-200 bg-white">
-                            <div className="flex items-center gap-2">
+                        {/* Comment Input - Fixed at Bottom, Above Mobile Nav */}
+                        <form onSubmit={handleCommentSubmit} className="fixed bottom-0 left-0 right-0 p-4 pb-24 md:pb-4 border-t border-gray-200 bg-white z-10">
+                            <div className="flex items-center gap-2 max-w-2xl mx-auto">
                                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                                     {currentUser.displayName?.[0]?.toUpperCase() || 'U'}
                                 </div>
@@ -296,12 +332,12 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, setGlobalMuted 
                                     value={commentText}
                                     onChange={(e) => setCommentText(e.target.value)}
                                     placeholder="Add a comment..."
-                                    className="flex-1 px-3 py-2 text-sm outline-none"
+                                    className="flex-1 px-3 py-2 text-sm outline-none border border-gray-300 rounded-full"
                                 />
                                 <button
                                     type="submit"
                                     disabled={!commentText.trim() || commentMutation.isPending}
-                                    className="text-blue-500 font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                                    className="text-blue-500 font-semibold text-sm disabled:opacity-40 px-4 py-2"
                                 >
                                     {commentMutation.isPending ? 'Posting...' : 'Post'}
                                 </button>
@@ -328,9 +364,9 @@ export default function Reels() {
         refetchInterval: 10000
     });
 
-    const handleUpload = async (url, desc) => {
+    const handleUpload = async (url, desc, song) => {
         try {
-            await uploadReel(url, desc, currentUser);
+            await uploadReel(url, desc, currentUser, song);
             queryClient.invalidateQueries(['reels']);
             setIsUploadOpen(false);
             return true;
@@ -351,7 +387,6 @@ export default function Reels() {
         }
     };
 
-    // Auto-unmute on first interaction
     useEffect(() => {
         const handleFirstInteraction = () => {
             setGlobalMuted(false);
@@ -385,10 +420,7 @@ export default function Reels() {
                 <div className="flex flex-col items-center gap-4 text-white px-8">
                     <X size={64} className="text-red-500" />
                     <p className="font-bold text-center">Failed to load reels</p>
-                    <button 
-                        onClick={() => queryClient.invalidateQueries(['reels'])}
-                        className="px-6 py-2 bg-white text-black rounded-full font-bold"
-                    >
+                    <button onClick={() => queryClient.invalidateQueries(['reels'])} className="px-6 py-2 bg-white text-black rounded-full font-bold">
                         Retry
                     </button>
                 </div>
@@ -398,64 +430,33 @@ export default function Reels() {
 
     return (
         <div className="fixed inset-0 bg-black">
-            {/* Mute/Unmute Button - Top Right */}
-            <button
-                onClick={() => setGlobalMuted(!globalMuted)}
-                className="fixed top-4 right-4 z-50 w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg"
-            >
+            <button onClick={() => setGlobalMuted(!globalMuted)} className="fixed top-4 right-4 z-50 w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg">
                 {globalMuted ? <VolumeX size={24} className="text-white" /> : <Volume2 size={24} className="text-white" />}
             </button>
 
-            {/* Upload Button */}
-            <button
-                onClick={() => setIsUploadOpen(true)}
-                className="fixed top-4 left-4 z-50 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg"
-            >
+            <button onClick={() => setIsUploadOpen(true)} className="fixed top-4 left-4 z-50 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
                 <Plus size={24} className="text-black" />
             </button>
 
-            {/* Reels Container */}
-            <div 
-                ref={containerRef}
-                onScroll={handleScroll}
-                className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-            >
+            <div ref={containerRef} onScroll={handleScroll} className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                 {reels && reels.length > 0 ? (
                     reels.map((reel, index) => (
-                        <VideoPlayer
-                            key={reel._id}
-                            reel={reel}
-                            isActive={index === activeIndex}
-                            currentUser={currentUser}
-                            globalMuted={globalMuted}
-                            setGlobalMuted={setGlobalMuted}
-                        />
+                        <VideoPlayer key={reel._id} reel={reel} isActive={index === activeIndex} currentUser={currentUser} globalMuted={globalMuted} setGlobalMuted={setGlobalMuted} />
                     ))
                 ) : (
                     <div className="h-full flex flex-col items-center justify-center text-white p-8 text-center">
                         <Upload size={64} className="mb-4 opacity-50" />
                         <h2 className="text-2xl font-bold mb-2">No Reels Yet</h2>
                         <p className="text-gray-400 mb-6">Be the first to upload a reel!</p>
-                        <button
-                            onClick={() => setIsUploadOpen(true)}
-                            className="px-8 py-3 bg-white text-black rounded-full font-bold"
-                        >
+                        <button onClick={() => setIsUploadOpen(true)} className="px-8 py-3 bg-white text-black rounded-full font-bold">
                             Upload Reel
                         </button>
                     </div>
                 )}
             </div>
 
-            {/* Upload Modal */}
             <AnimatePresence>
-                {isUploadOpen && (
-                    <UploadReelModal
-                        isOpen={isUploadOpen}
-                        onClose={() => setIsUploadOpen(false)}
-                        onUpload={handleUpload}
-                    />
-                )}
+                {isUploadOpen && <UploadReelModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUpload={handleUpload} />}
             </AnimatePresence>
 
             <style jsx>{`
