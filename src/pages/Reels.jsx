@@ -34,19 +34,39 @@ const VideoPlayer = ({ reel, isActive, currentUser, globalMuted, showComments, s
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
 
-    // SIMPLE AUTOPLAY - NO COMPLEX LOGIC
+    // FIXED: Force video reload to prevent freezing
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
 
-        if (isActive) {
-            video.currentTime = 0;
-            video.play()
-                .then(() => setIsPlaying(true))
-                .catch(() => {
+        const playVideo = async () => {
+            try {
+                // Force reload the video
+                video.load();
+                
+                // Wait a tiny bit for load
+                await new Promise(resolve => setTimeout(resolve, 50));
+                
+                // Reset to start
+                video.currentTime = 0;
+                
+                // Try to play
+                await video.play();
+                setIsPlaying(true);
+            } catch (error) {
+                // If failed, try muted
+                try {
                     video.muted = true;
-                    video.play().then(() => setIsPlaying(true));
-                });
+                    await video.play();
+                    setIsPlaying(true);
+                } catch (e) {
+                    console.error('Play failed:', e);
+                }
+            }
+        };
+
+        if (isActive) {
+            playVideo();
         } else {
             video.pause();
             setIsPlaying(false);
