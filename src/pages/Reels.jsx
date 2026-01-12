@@ -33,51 +33,64 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
     const queryClient = useQueryClient();
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
+    const [isReady, setIsReady] = useState(false);
 
-    // NUCLEAR AUTOPLAY - play when active, pause otherwise
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video || !shouldRenderVideo) return;
-
-        const startPlayback = async () => {
-            try {
-                // Ensure muted for best autoplay pass rate
-                video.muted = globalMuted;
-                
-                // Reset and Load
-                if (isActive) {
-                    await video.play();
-                    setIsPlaying(true);
-                } else {
-                    video.pause();
-                    setIsPlaying(false);
-                }
-            } catch (error) {
-                console.error("Autoplay failed, trying muted...", error);
-                try {
-                    video.muted = true;
-                    await video.play();
-                    setIsPlaying(true);
-                } catch (err) {
-                    console.error("Failsafe play failed", err);
-                    setIsPlaying(false);
-                }
-            }
-        };
-
-        startPlayback();
-
-        return () => {
-            if (video) video.pause();
-        };
-    }, [isActive, shouldRenderVideo, globalMuted]);
-
-    // Sync mute
+    // 1. Force Mute Sync immediately
     useEffect(() => {
         if (videoRef.current) {
             videoRef.current.muted = globalMuted;
         }
     }, [globalMuted]);
+
+    // 2. ROBUST AUTOPLAY LOGIC
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video || !shouldRenderVideo) return;
+
+        let playPromise;
+
+        const handlePlayback = async () => {
+            try {
+                // Ensure state matches global preference
+                video.muted = globalMuted;
+
+                if (isActive) {
+                    // Only play if paused to avoid promise stacking
+                    if (video.paused) {
+                        playPromise = video.play();
+                        if (playPromise !== undefined) {
+                            await playPromise;
+                            setIsPlaying(true);
+                        }
+                    }
+                } else {
+                    video.pause();
+                    video.currentTime = 0; // Reset neighbors
+                    setIsPlaying(false);
+                }
+            } catch (error) {
+                console.warn("Autoplay prevented:", error);
+                setIsPlaying(false);
+
+                // Fallback: If unmuted autoplay fails, try muted (often required by browsers)
+                if (isActive && !video.muted) {
+                    try {
+                        video.muted = true;
+                        await video.play();
+                        setIsPlaying(true);
+                    } catch (e) {
+                        // User interaction required
+                    }
+                }
+            }
+        };
+
+        handlePlayback();
+
+        return () => {
+            if (video) video.pause();
+        };
+    }, [isActive, shouldRenderVideo, globalMuted]);
 
     const handleTimeUpdate = () => {
         if (videoRef.current) {
@@ -90,8 +103,9 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
         e.stopPropagation();
         const video = videoRef.current;
         if (!video) return;
+
         if (video.paused) {
-            video.play().then(() => setIsPlaying(true));
+            video.play().then(() => setIsPlaying(true)).catch(console.error);
         } else {
             video.pause();
             setIsPlaying(false);
@@ -111,7 +125,7 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
                     text: reel.description || 'Amazing reel!',
                     url: window.location.href
                 });
-            } catch (err) {}
+            } catch (err) { }
         } else {
             navigator.clipboard.writeText(window.location.href);
             alert('Link copied!');
@@ -124,44 +138,60 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
         <div className="relative w-full h-[100dvh] bg-black snap-start snap-always overflow-hidden">
             {/* Desktop */}
             <div className="hidden md:flex h-full items-center justify-center gap-8 px-8">
-                <div className="relative w-full max-w-[450px] h-[90vh] bg-black rounded-3xl overflow-hidden shadow-2xl">
+                {/* CRITICAL FIX: transform: 'translateZ(0)' 
+                   forces hardware acceleration to fix the "Audio plays but video invisible" bug 
+                   inside rounded overflow containers.
+                */}
+                <div
+                    className="relative w-full max-w-[450px] h-[90vh] bg-black rounded-3xl overflow-hidden shadow-2xl"
+                    style={{ transform: 'translateZ(0)' }}
+                >
                     {shouldRenderVideo ? (
                         <video
                             ref={videoRef}
                             key={reel.url}
                             src={reel.url}
-                            className="w-full h-full object-cover cursor-pointer"
+                            poster={reel.userPhoto} /* Use native poster to prevent black flash */
+                            className="w-full h-full object-cover cursor-pointer z-0"
                             loop
                             playsInline
+                            webkit-playsinline="true"
                             muted={globalMuted}
-                            preload="auto"
+                            preload="metadata"
                             onClick={togglePlay}
                             onTimeUpdate={handleTimeUpdate}
+                            onLoadedData={() => setIsReady(true)}
+                            onWaiting={() => setIsReady(false)}
+                            onPlaying={() => setIsReady(true)}
                         />
                     ) : (
                         <div className="w-full h-full bg-black flex items-center justify-center">
                             {reel.userPhoto && (
-                                <img 
-                                    src={reel.userPhoto} 
-                                    className="w-full h-full object-cover opacity-30 blur-sm" 
-                                    alt="" 
+                                <img
+                                    src={reel.userPhoto}
+                                    className="w-full h-full object-cover opacity-50 blur-md"
+                                    alt=""
                                 />
                             )}
-                            <Loader2 className="animate-spin text-white/20 absolute" size={40} />
                         </div>
                     )}
 
-                    {!isPlaying && isActive && (
-                        <div 
-                            className="absolute inset-0 flex items-center justify-center bg-black/20 z-10 cursor-pointer"
+                    {/* Loader overlay - show if active but video hasn't fired 'playing' or 'loadeddata' yet */}
+                    {isActive && !isReady && shouldRenderVideo && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                            <Loader2 className="animate-spin text-white/50" size={40} />
+                        </div>
+                    )}
+
+                    {/* Play Icon Overlay */}
+                    {!isPlaying && isActive && isReady && (
+                        <div
+                            className="absolute inset-0 flex items-center justify-center bg-black/10 z-10 cursor-pointer"
                             onClick={togglePlay}
                         >
-                            <div className="w-20 h-20 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center animate-pulse">
+                            <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center animate-pulse hover:bg-white/30 transition-all">
                                 <Play className="text-white fill-white ml-1" size={40} />
                             </div>
-                            <p className="absolute bottom-1/3 text-white text-xs font-bold uppercase tracking-widest opacity-70">
-                                Tap to Play
-                            </p>
                         </div>
                     )}
 
@@ -186,21 +216,21 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
 
                 <div className="flex flex-col gap-6 items-center">
                     <button onClick={() => likeMutation.mutate()} className="flex flex-col items-center gap-2">
-                        <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg ${hasLiked ? 'bg-red-500' : 'bg-white/20 backdrop-blur-md'}`}>
+                        <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform active:scale-90 ${hasLiked ? 'bg-red-500' : 'bg-white/20 backdrop-blur-md'}`}>
                             <Heart size={28} className={`${hasLiked ? 'fill-white text-white' : 'text-white'}`} />
                         </div>
                         <span className="text-white text-sm font-bold">{reel.likes?.length || 0}</span>
                     </button>
 
                     <button onClick={() => setShowComments(true)} className="flex flex-col items-center gap-2">
-                        <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg">
+                        <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg hover:bg-white/30 transition-colors">
                             <MessageCircle size={28} className="text-white" />
                         </div>
                         <span className="text-white text-sm font-bold">{reel.comments?.length || 0}</span>
                     </button>
 
                     <button onClick={handleShare} className="flex flex-col items-center gap-2">
-                        <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg">
+                        <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center shadow-lg hover:bg-white/30 transition-colors">
                             <Share2 size={26} className="text-white" />
                         </div>
                     </button>
@@ -211,7 +241,7 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
                 </div>
             </div>
 
-            {/* Mobile Sidebar */}
+            {/* Mobile View */}
             <div className="md:hidden flex flex-col h-full">
                 <div className="relative flex-1 bg-black">
                     {shouldRenderVideo ? (
@@ -219,38 +249,47 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
                             ref={videoRef}
                             key={reel.url}
                             src={reel.url}
+                            poster={reel.userPhoto}
                             className="w-full h-full object-cover cursor-pointer"
                             loop
                             playsInline
+                            webkit-playsinline="true"
                             muted={globalMuted}
-                            preload="auto"
+                            preload="metadata"
                             onClick={togglePlay}
                             onTimeUpdate={handleTimeUpdate}
+                            onLoadedData={() => setIsReady(true)}
+                            onWaiting={() => setIsReady(false)}
+                            onPlaying={() => setIsReady(true)}
                         />
                     ) : (
                         <div className="w-full h-full bg-black flex items-center justify-center">
                             {reel.userPhoto && (
-                                <img 
-                                    src={reel.userPhoto} 
-                                    className="w-full h-full object-cover opacity-30 blur-sm" 
-                                    alt="" 
+                                <img
+                                    src={reel.userPhoto}
+                                    className="w-full h-full object-cover opacity-50 blur-sm"
+                                    alt=""
                                 />
                             )}
-                            <Loader2 className="animate-spin text-white/20 absolute" size={40} />
                         </div>
                     )}
 
-                    {!isPlaying && isActive && (
-                        <div 
-                            className="absolute inset-0 flex items-center justify-center bg-black/20 z-10 cursor-pointer"
+                    {/* Mobile Loader */}
+                    {isActive && !isReady && shouldRenderVideo && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                            <Loader2 className="animate-spin text-white/50" size={40} />
+                        </div>
+                    )}
+
+                    {/* Mobile Play Icon */}
+                    {!isPlaying && isActive && isReady && (
+                        <div
+                            className="absolute inset-0 flex items-center justify-center bg-black/10 z-10 cursor-pointer"
                             onClick={togglePlay}
                         >
-                            <div className="w-20 h-20 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center animate-pulse">
-                                <Play className="text-white fill-white ml-1" size={40} />
+                            <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                                <Play className="text-white fill-white ml-1" size={32} />
                             </div>
-                            <p className="absolute bottom-1/3 text-white text-xs font-bold uppercase tracking-widest opacity-70">
-                                Tap to Play
-                            </p>
                         </div>
                     )}
 
@@ -276,21 +315,21 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
                 <div className="bg-black border-t border-white/10 p-4 pb-24">
                     <div className="flex justify-around items-center max-w-md mx-auto">
                         <button onClick={() => likeMutation.mutate()} className="flex flex-col items-center gap-1">
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${hasLiked ? 'bg-red-500' : 'bg-white/20'}`}>
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-transform active:scale-90 ${hasLiked ? 'bg-red-500' : 'bg-white/20'}`}>
                                 <Heart size={24} className={`${hasLiked ? 'fill-white text-white' : 'text-white'}`} />
                             </div>
                             <span className="text-white text-xs font-bold">{reel.likes?.length || 0}</span>
                         </button>
 
                         <button onClick={() => setShowComments(true)} className="flex flex-col items-center gap-1">
-                            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center active:scale-90 transition-transform">
                                 <MessageCircle size={24} className="text-white" />
                             </div>
                             <span className="text-white text-xs font-bold">{reel.comments?.length || 0}</span>
                         </button>
 
                         <button onClick={handleShare} className="flex flex-col items-center gap-1">
-                            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center active:scale-90 transition-transform">
                                 <Share2 size={22} className="text-white" />
                             </div>
                         </button>
@@ -313,7 +352,7 @@ export default function Reels() {
     const [commentText, setCommentText] = useState('');
     const { currentUser } = useAuth();
     const queryClient = useQueryClient();
-    
+
     const { data: reels, isLoading, error } = useQuery({
         queryKey: ['reels'],
         queryFn: fetchReels,
@@ -336,7 +375,7 @@ export default function Reels() {
         const scrollTop = e.target.scrollTop;
         const clientHeight = e.target.clientHeight;
         const newIndex = Math.round(scrollTop / clientHeight);
-        
+
         if (newIndex !== activeIndex && newIndex >= 0 && newIndex < (reels?.length || 0)) {
             setActiveIndex(newIndex);
         }
@@ -362,7 +401,8 @@ export default function Reels() {
 
     useEffect(() => {
         const handleClick = () => {
-            setGlobalMuted(false);
+            // Optional: Unmute on first interaction
+            // setGlobalMuted(false); 
             window.removeEventListener('click', handleClick);
         };
         window.addEventListener('click', handleClick);
@@ -406,12 +446,12 @@ export default function Reels() {
             <div onScroll={handleScroll} className="h-full w-full overflow-y-scroll snap-y snap-mandatory" style={{ scrollbarWidth: 'none' }}>
                 {reels && reels.length > 0 ? (
                     reels.map((reel, index) => (
-                        <VideoPlayer 
-                            key={reel._id} 
-                            reel={reel} 
-                            isActive={index === activeIndex} 
+                        <VideoPlayer
+                            key={reel._id}
+                            reel={reel}
+                            isActive={index === activeIndex}
                             shouldRenderVideo={Math.abs(index - activeIndex) <= 2}
-                            currentUser={currentUser} 
+                            currentUser={currentUser}
                             globalMuted={globalMuted}
                             showComments={showComments}
                             setShowComments={setShowComments}
@@ -435,15 +475,15 @@ export default function Reels() {
                 {isUploadOpen && <UploadReelModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} onUpload={handleUpload} />}
             </AnimatePresence>
 
-            {/* SHARED COMMENTS DRAWER - PEER OF THE SCROLL CONTAINER */}
+            {/* SHARED COMMENTS DRAWER */}
             <AnimatePresence>
                 {showComments && activeReel && (
                     <>
                         {/* Desktop Shared Drawer */}
                         <div className="hidden md:block">
-                            <motion.div 
-                                initial={{ x: 400 }} 
-                                animate={{ x: 0 }} 
+                            <motion.div
+                                initial={{ x: 400 }}
+                                animate={{ x: 0 }}
                                 exit={{ x: 400 }}
                                 className="fixed right-0 top-0 bottom-0 w-[400px] bg-white shadow-2xl flex flex-col z-[100]"
                             >
@@ -496,9 +536,9 @@ export default function Reels() {
 
                         {/* Mobile Shared Drawer */}
                         <div className="md:hidden">
-                            <motion.div 
-                                initial={{ y: "100%" }} 
-                                animate={{ y: 0 }} 
+                            <motion.div
+                                initial={{ y: "100%" }}
+                                animate={{ y: 0 }}
                                 exit={{ y: "100%" }}
                                 transition={{ type: "spring", damping: 30, stiffness: 300 }}
                                 className="fixed inset-0 bg-white z-[100] flex flex-col"
