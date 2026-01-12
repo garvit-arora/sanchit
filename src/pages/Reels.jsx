@@ -444,7 +444,7 @@ export default function Reels() {
             </button>
 
             <div onScroll={handleScroll} className="h-full w-full overflow-y-scroll snap-y snap-mandatory" style={{ scrollbarWidth: 'none' }}>
-                {reels && reels.length > 0 ? (
+                {Array.isArray(reels) && reels.length > 0 ? (
                     reels.map((reel, index) => (
                         <VideoPlayer
                             key={reel._id}

@@ -116,6 +116,9 @@ export const applyForJob = async (jobId, applicationData) => {
 // --- REELS (MongoDB) ---
 export const fetchReels = async () => {
     const res = await axios.get(`${API_URL}/reels`);
+    if (!Array.isArray(res.data)) {
+        throw new Error(res.data.error || "Failed to fetch reels");
+    }
     return res.data;
 };
 
