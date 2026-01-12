@@ -15,20 +15,20 @@ export const AuthProvider = ({ children }) => {
   const refreshProfile = async (user = currentUser) => {
     if (!user) return;
     try {
-        const token = await user.getIdToken();
-        const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-        const res = await axios.post(`${API_BASE}/auth/sync`, {
-            email: user.email,
-            displayName: user.displayName,
-            uid: user.uid,
-            photoURL: user.photoURL
-        }, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-        setUserProfile(res.data);
-        return res.data;
+      const token = await user.getIdToken();
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+      const res = await axios.post(`${API_BASE}/auth/sync`, {
+        email: user.email,
+        displayName: user.displayName,
+        uid: user.uid,
+        photoURL: user.photoURL
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUserProfile(res.data);
+      return res.data;
     } catch (error) {
-        console.error("Failed to sync profile:", error);
+      console.error("Failed to sync profile:", error);
     }
   };
 
@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     currentUser,
-    userProfile, 
+    userProfile,
     login,
     logout,
     loading,

@@ -2,7 +2,7 @@ import axios from 'axios';
 import { collection, query, orderBy, limit, getDocs, addDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
 // --- POSTS (Feed) via MongoDB ---
 export const fetchFeed = async () => {
@@ -141,5 +141,16 @@ export const uploadReel = async (url, description, user, song = null) => {
         userPhoto: user.photoURL,
         song: song
     });
+    return res.data;
+};
+
+// --- AUTH (EDU Verification) ---
+export const requestEduVerification = async (uid, collegeEmail) => {
+    const res = await axios.post(`${API_URL}/auth/request-verification`, { uid, collegeEmail });
+    return res.data;
+};
+
+export const verifyOtp = async (uid, otp) => {
+    const res = await axios.post(`${API_URL}/auth/verify-otp`, { uid, otp });
     return res.data;
 };

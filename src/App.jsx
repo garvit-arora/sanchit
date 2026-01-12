@@ -14,6 +14,7 @@ import Reels from './pages/Reels';
 import Profile from './pages/Profile';
 import Forum from './pages/Forum';
 import Onboarding from './pages/Onboarding';
+import VerifyEDU from './pages/VerifyEDU';
 import AdminPanel from './pages/AdminPanel';
 import AdminLogin from './pages/AdminLogin';
 import NotFound from './pages/NotFound';
@@ -22,11 +23,11 @@ const queryClient = new QueryClient();
 
 // Helper to check for Hardcoded Admin Access
 const AdminGuard = ({ children }) => {
-    const adminToken = localStorage.getItem('admin_token');
-    if (adminToken === 'grid_master_access_granted') {
-        return children;
-    }
-    return <AdminLogin />;
+  const adminToken = localStorage.getItem('admin_token');
+  if (adminToken === 'grid_master_access_granted') {
+    return children;
+  }
+  return <AdminLogin />;
 };
 
 export default function App() {
@@ -35,31 +36,32 @@ export default function App() {
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-              {/* Public Routes */}
-              <Route path="/" element={<Landing />} />
-              <Route path="/login" element={<Login />} />
-              
-              {/* Protected Routes */}
-              <Route path="/*" element={
-                  <AuthGuard>
-                    <Layout>
-                        <Routes>
-                            <Route path="/onboarding" element={<Onboarding />} />
-                            <Route path="/feed" element={<Feed />} />
-                            <Route path="/forum" element={<Forum />} />
-                            <Route path="/reels" element={<Reels />} />
-                            <Route path="/chat" element={<Chat />} />
-                            <Route path="/opportunities" element={<Opportunities />} />
-                            <Route path="/profile" element={<Profile />} />
-                            <Route path="/admin" element={<AdminGuard><AdminPanel /></AdminGuard>} />
-                            <Route path="*" element={<NotFound />} />
-                        </Routes>
-                    </Layout>
-                  </AuthGuard>
-              } />
-              
-              {/* 404 Catch All */}
-              <Route path="*" element={<NotFound />} />
+            {/* Public Routes */}
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
+
+            {/* Protected Routes */}
+            <Route path="/*" element={
+              <AuthGuard>
+                <Layout>
+                  <Routes>
+                    <Route path="/onboarding" element={<Onboarding />} />
+                    <Route path="/verify-edu" element={<VerifyEDU />} />
+                    <Route path="/feed" element={<Feed />} />
+                    <Route path="/forum" element={<Forum />} />
+                    <Route path="/reels" element={<Reels />} />
+                    <Route path="/chat" element={<Chat />} />
+                    <Route path="/opportunities" element={<Opportunities />} />
+                    <Route path="/profile" element={<Profile />} />
+                    <Route path="/admin" element={<AdminGuard><AdminPanel /></AdminGuard>} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Layout>
+              </AuthGuard>
+            } />
+
+            {/* 404 Catch All */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>
