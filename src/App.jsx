@@ -10,7 +10,7 @@ import { AuthProvider } from './context/AuthContext';
 import AuthGuard from './components/AuthGuard';
 import Chat from './pages/Chat';
 import Reels from './pages/Reels';
-
+import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
 import Forum from './pages/Forum';
 import Onboarding from './pages/Onboarding';
@@ -48,6 +48,7 @@ export default function App() {
                     <Route path="/onboarding" element={<Onboarding />} />
                     <Route path="/verify-edu" element={<VerifyEDU />} />
                     <Route path="/feed" element={<Feed />} />
+                    <Route path="/leaderboard" element={<Leaderboard />} />
                     <Route path="/forum" element={<Forum />} />
                     <Route path="/reels" element={<Reels />} />
                     <Route path="/chat" element={<Chat />} />

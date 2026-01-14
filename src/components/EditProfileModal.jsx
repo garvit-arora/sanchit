@@ -8,7 +8,8 @@ export default function EditProfileModal({ isOpen, onClose, user, onSave }) {
         username: user?.username || '',
         bio: user?.bio || '',
         skills: user?.skills?.join(', ') || '',
-        leetcodeUsername: user?.leetcodeUsername || ''
+        leetcodeUsername: user?.leetcodeUsername || '',
+        campus: user?.campus || ''
     });
 
     const handleSubmit = () => {
@@ -30,44 +31,53 @@ export default function EditProfileModal({ isOpen, onClose, user, onSave }) {
                 <div className="space-y-4">
                     <div>
                         <label className="text-sm font-bold text-gray-400">Display Name</label>
-                        <input 
+                        <input
                             className="w-full bg-black/30 border border-white/10 rounded-xl p-3 text-white font-bold outline-none focus:border-primary mt-1"
                             value={formData.displayName}
-                            onChange={e => setFormData({...formData, displayName: e.target.value})}
+                            onChange={e => setFormData({ ...formData, displayName: e.target.value })}
                         />
                     </div>
                     <div>
                         <label className="text-sm font-bold text-gray-400">Unique Handle (@)</label>
-                        <input 
+                        <input
                             className="w-full bg-black/30 border border-white/10 rounded-xl p-3 text-white font-bold outline-none focus:border-primary mt-1"
                             value={formData.username || ''}
-                            onChange={e => setFormData({...formData, username: e.target.value})}
+                            onChange={e => setFormData({ ...formData, username: e.target.value })}
                             placeholder="username"
                         />
                     </div>
                     <div>
                         <label className="text-sm font-bold text-gray-400">Bio</label>
-                        <textarea 
+                        <textarea
                             className="w-full bg-black/30 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-primary mt-1 resize-none h-24"
                             value={formData.bio}
-                            onChange={e => setFormData({...formData, bio: e.target.value})}
+                            onChange={e => setFormData({ ...formData, bio: e.target.value })}
                         />
                     </div>
                     <div>
                         <label className="text-sm font-bold text-gray-400">LeetCode Username</label>
-                        <input 
+                        <input
                             className="w-full bg-black/30 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-primary mt-1"
                             value={formData.leetcodeUsername || ''}
-                            onChange={e => setFormData({...formData, leetcodeUsername: e.target.value})}
+                            onChange={e => setFormData({ ...formData, leetcodeUsername: e.target.value })}
                             placeholder="e.g. gautam_123"
                         />
                     </div>
                     <div>
+                        <label className="text-sm font-bold text-gray-400">Campus</label>
+                        <input
+                            className="w-full bg-black/30 border border-white/10 rounded-xl p-3 text-white font-bold outline-none focus:border-primary mt-1"
+                            value={formData.campus || ''}
+                            onChange={e => setFormData({ ...formData, campus: e.target.value })}
+                            placeholder="e.g. BPIT"
+                        />
+                    </div>
+                    <div>
                         <label className="text-sm font-bold text-gray-400">Skills (comma separated)</label>
-                        <input 
+                        <input
                             className="w-full bg-black/30 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-primary mt-1"
                             value={formData.skills}
-                            onChange={e => setFormData({...formData, skills: e.target.value})}
+                            onChange={e => setFormData({ ...formData, skills: e.target.value })}
                         />
                     </div>
                 </div>

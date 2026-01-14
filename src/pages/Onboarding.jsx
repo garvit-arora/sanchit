@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ArrowRight, Check, Sparkles, Code, User as UserIcon } from 'lucide-react';
+import { ArrowRight, Check, Sparkles, Code, User as UserIcon, MapPin } from 'lucide-react';
 import apiClient from '../services/apiClient';
 
 export default function Onboarding() {
@@ -22,6 +22,7 @@ export default function Onboarding() {
         username: '',
         role: 'Student',
         leetcodeUsername: '',
+        campus: '',
         bio: 'Just joined the Grid.'
     });
 
@@ -45,6 +46,7 @@ export default function Onboarding() {
                 username: data.username,
                 role: data.role,
                 leetcodeUsername: data.leetcodeUsername,
+                campus: data.campus,
                 bio: data.bio,
                 isVerified: false,
                 verified: false
@@ -133,6 +135,20 @@ export default function Onboarding() {
                                 onChange={e => updateData({ leetcodeUsername: e.target.value })}
                                 className="bg-transparent text-white outline-none w-full font-medium"
                                 placeholder="Optional"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="text-gray-400 text-sm font-bold ml-2">Campus</label>
+                        <div className="mt-2 bg-surface border border-white/10 rounded-2xl p-4 flex items-center gap-3">
+                            <MapPin className="text-gray-500" size={20} />
+                            <input
+                                type="text"
+                                value={data.campus}
+                                onChange={e => updateData({ campus: e.target.value })}
+                                className="bg-transparent text-white outline-none w-full font-medium"
+                                placeholder="e.g. BPIT, NSUT, IITD"
                             />
                         </div>
                     </div>

@@ -95,6 +95,40 @@ export const voteForumThread = async (threadId, userId, type) => {
     return res.data;
 };
 
+export const addForumComment = async (threadId, text, author, authorId) => {
+    const res = await apiClient.post(`/forum/${threadId}/comment`, { text, author, authorId });
+    return res.data;
+};
+
+export const replyForumComment = async (threadId, commentId, text, author, authorId) => {
+    const res = await apiClient.post(`/forum/${threadId}/comment/${commentId}/reply`, { text, author, authorId });
+    return res.data;
+};
+
+export const fetchUserThreads = async (userId) => {
+    try {
+        const res = await apiClient.get(`/forum/user/${userId}`);
+        return res.data;
+    } catch (error) {
+        return [];
+    }
+};
+
+export const deleteForumThread = async (threadId) => {
+    const res = await apiClient.delete(`/forum/${threadId}`);
+    return res.data;
+};
+
+export const updateForumThread = async (threadId, data) => {
+    const res = await apiClient.put(`/forum/${threadId}`, data);
+    return res.data;
+};
+
+export const deleteForumComment = async (threadId, commentId) => {
+    const res = await apiClient.delete(`/forum/${threadId}/comment/${commentId}`);
+    return res.data;
+};
+
 // --- JOBS & OPPORTUNITIES (MongoDB) ---
 export const fetchJobs = async () => {
     try {
@@ -118,6 +152,15 @@ export const fetchReels = async () => {
         throw new Error(res.data.error || "Failed to fetch reels");
     }
     return res.data;
+};
+
+export const fetchUserReels = async (userId) => {
+    try {
+        const res = await apiClient.get(`/reels/user/${userId}`);
+        return res.data;
+    } catch (error) {
+        return [];
+    }
 };
 
 export const likeReel = async (reelId, userId) => {

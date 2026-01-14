@@ -1,9 +1,10 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, PlaySquare, Briefcase, MessageSquare, Menu, User, Shield } from 'lucide-react';
+import { Home, PlaySquare, Briefcase, MessageSquare, Menu, User, Shield, Trophy } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import ConnectionStatus from './ConnectionStatus';
+import UserAvatar from './UserAvatar';
+import MiniLeaderboard from './MiniLeaderboard';
 
 const SidebarLink = ({ to, icon: Icon, label }) => {
     return (
@@ -30,38 +31,52 @@ export default function Layout({ children }) {
         <div className="min-h-screen bg-background text-text flex">
             {/* Desktop Sidebar */}
             <aside className="hidden md:flex flex-col w-72 h-screen sticky top-0 border-r border-white/10 p-6 bg-background/50 backdrop-blur-xl">
-                <div className="mb-12">
-                    <h1 className="text-3xl font-display font-black tracking-tighter text-white">
-                        San<span className="text-primary">chit</span>.
-                    </h1>
+                <div className="mb-8">
+                    <NavLink to="/feed">
+                        <h1 className="text-3xl font-display font-black tracking-tighter text-white hover:opacity-80 transition-opacity">
+                            San<span className="text-primary">chit</span>.
+                        </h1>
+                    </NavLink>
                 </div>
 
-                <nav className="flex-1 space-y-4">
+                <nav className="flex-1 space-y-4 mb-6">
                     <SidebarLink to="/feed" icon={Home} label="Feed" />
                     <SidebarLink to="/forum" icon={MessageSquare} label="Forum" />
                     <SidebarLink to="/reels" icon={PlaySquare} label="Reels" />
+                    <SidebarLink to="/leaderboard" icon={Trophy} label="Rankings" />
                     <SidebarLink to="/chat" icon={MessageSquare} label="DMs" />
                     <SidebarLink to="/opportunities" icon={Briefcase} label="Gigs" />
-                     {isAdmin && (
+                    {isAdmin && (
                         <SidebarLink to="/admin" icon={Shield} label="Admin" />
-                     )}
+                    )}
                 </nav>
 
-                <div className="mt-auto pt-6 border-t border-white/10">
-                    <SidebarLink to="/profile" icon={User} label="Profile" />
+                <MiniLeaderboard />
+
+                <div className="mt-4 pt-6 border-t border-white/10">
+                    <NavLink to="/profile" className={({ isActive }) => `
+                        flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 group
+                        ${isActive ? 'bg-surface border border-secondary/30 text-secondary' : 'text-gray-500 hover:text-white hover:bg-white/5'}
+                    `}>
+                        <UserAvatar src={currentUser?.photoURL} name={userProfile?.displayName} size="sm" />
+                        <span className="font-bold tracking-wide text-lg hidden md:block">Profile</span>
+                    </NavLink>
                 </div>
             </aside>
 
             {/* Mobile Bottom Nav */}
             <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background/90 backdrop-blur-lg border-t border-white/10 z-50 flex justify-around p-4 pb-6">
-                 <NavLink to="/feed" className={({isActive}) => isActive ? "text-secondary" : "text-gray-500"}><Home size={26} /></NavLink>
-                 <NavLink to="/reels" className={({isActive}) => isActive ? "text-secondary" : "text-gray-500"}><PlaySquare size={26} /></NavLink>
-                 <NavLink to="/chat" className={({isActive}) => isActive ? "text-secondary" : "text-gray-500"}><MessageSquare size={26} /></NavLink>
-                 <NavLink to="/opportunities" className={({isActive}) => isActive ? "text-secondary" : "text-gray-500"}><Briefcase size={26} /></NavLink>
-                 {isAdmin && (
-                    <NavLink to="/admin" className={({isActive}) => isActive ? "text-secondary" : "text-gray-500"}><Shield size={26} /></NavLink>
-                 )}
-                 <NavLink to="/profile" className={({isActive}) => isActive ? "text-secondary" : "text-gray-500"}><User size={26} /></NavLink>
+                <NavLink to="/feed" className={({ isActive }) => isActive ? "text-secondary" : "text-gray-500"}><Home size={26} /></NavLink>
+                <NavLink to="/leaderboard" className={({ isActive }) => isActive ? "text-secondary" : "text-gray-500"}><Trophy size={26} /></NavLink>
+                <NavLink to="/reels" className={({ isActive }) => isActive ? "text-secondary" : "text-gray-500"}><PlaySquare size={26} /></NavLink>
+                <NavLink to="/chat" className={({ isActive }) => isActive ? "text-secondary" : "text-gray-500"}><MessageSquare size={26} /></NavLink>
+                <NavLink to="/opportunities" className={({ isActive }) => isActive ? "text-secondary" : "text-gray-500"}><Briefcase size={26} /></NavLink>
+                {isAdmin && (
+                    <NavLink to="/admin" className={({ isActive }) => isActive ? "text-secondary" : "text-gray-500"}><Shield size={26} /></NavLink>
+                )}
+                <NavLink to="/profile" className={({ isActive }) => isActive ? "border-2 border-secondary rounded-full" : ""}>
+                    <UserAvatar src={currentUser?.photoURL} name={userProfile?.displayName} size="sm" />
+                </NavLink>
             </nav>
 
             {/* Main Content Area */}
@@ -70,9 +85,6 @@ export default function Layout({ children }) {
                     {children}
                 </div>
             </main>
-            
-            {/* Connection Status Indicator */}
-            <ConnectionStatus />
         </div>
     );
 }

@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MessageCircle, Volume2, VolumeX, Play, Plus, Upload, Loader2, X, Send, Share2, Music, Smile } from 'lucide-react';
+import { Heart, MessageCircle, Volume2, VolumeX, Play, Plus, Upload, Loader2, X, Send, Share2, Music, Smile, ArrowLeft } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchReels, uploadReel, likeReel, addReelComment } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import UploadReelModal from '../components/UploadReelModal';
+import UserAvatar from '../components/UserAvatar';
 
 const EMOJIS = ['😀', '😂', '😍', '🥰', '😎', '🤩', '😭', '😱', '🔥', '❤️', '👍', '👏', '🙌', '💯', '✨', '🎉'];
 
@@ -151,13 +153,13 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
                             ref={videoRef}
                             key={reel.url}
                             src={reel.url}
-                            poster={reel.userPhoto} /* Use native poster to prevent black flash */
                             className="w-full h-full object-cover cursor-pointer z-0"
                             loop
                             playsInline
+                            autoPlay
                             webkit-playsinline="true"
                             muted={globalMuted}
-                            preload="metadata"
+                            preload="auto"
                             onClick={togglePlay}
                             onTimeUpdate={handleTimeUpdate}
                             onLoadedData={() => setIsReady(true)}
@@ -201,7 +203,7 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
 
                     <div className="absolute bottom-0 left-0 right-0 p-6 z-30 bg-gradient-to-t from-black/80 to-transparent">
                         <div className="flex items-center gap-3 mb-2">
-                            <img src={reel.userPhoto || `https://ui-avatars.com/api/?name=${reel.userDisplayName}`} className="w-10 h-10 rounded-full border-2 border-white" alt="" />
+                            <UserAvatar src={reel.userPhoto} name={reel.userDisplayName} size="sm" className="border-2 border-white" />
                             <h4 className="text-white font-bold text-base">@{reel.userDisplayName}</h4>
                         </div>
                         {reel.description && <p className="text-white text-sm line-clamp-2">{reel.description}</p>}
@@ -235,8 +237,16 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
                         </div>
                     </button>
 
-                    <motion.div animate={{ rotate: isPlaying ? 360 : 0 }} transition={{ duration: 3, repeat: isPlaying ? Infinity : 0, ease: "linear" }} className="w-14 h-14 rounded-full border-2 border-white overflow-hidden shadow-lg">
-                        <img src={reel.userPhoto || `https://ui-avatars.com/api/?name=${reel.userDisplayName}`} className="w-full h-full object-cover" alt="" />
+                    <motion.div
+                        animate={{ rotate: isPlaying ? 360 : 0 }}
+                        transition={{ duration: 5, repeat: isPlaying ? Infinity : 0, ease: "linear" }}
+                        className="w-14 h-14 rounded-full border-4 border-white/20 p-1 bg-black/50 shadow-2xl relative"
+                    >
+                        <UserAvatar
+                            src={reel.userPhoto}
+                            name={reel.userDisplayName}
+                            size="full"
+                        />
                     </motion.div>
                 </div>
             </div>
@@ -249,13 +259,13 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
                             ref={videoRef}
                             key={reel.url}
                             src={reel.url}
-                            poster={reel.userPhoto}
                             className="w-full h-full object-cover cursor-pointer"
                             loop
                             playsInline
+                            autoPlay
                             webkit-playsinline="true"
                             muted={globalMuted}
-                            preload="metadata"
+                            preload="auto"
                             onClick={togglePlay}
                             onTimeUpdate={handleTimeUpdate}
                             onLoadedData={() => setIsReady(true)}
@@ -299,7 +309,7 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
 
                     <div className="absolute bottom-0 left-0 right-0 p-4 z-30 bg-gradient-to-t from-black/90 to-transparent">
                         <div className="flex items-center gap-2 mb-2">
-                            <img src={reel.userPhoto || `https://ui-avatars.com/api/?name=${reel.userDisplayName}`} className="w-8 h-8 rounded-full border-2 border-white" alt="" />
+                            <UserAvatar src={reel.userPhoto} name={reel.userDisplayName} size="sm" className="border-2 border-white" />
                             <h4 className="text-white font-bold text-sm">@{reel.userDisplayName}</h4>
                         </div>
                         {reel.description && <p className="text-white text-xs line-clamp-2 mb-1">{reel.description}</p>}
@@ -334,8 +344,16 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
                             </div>
                         </button>
 
-                        <motion.div animate={{ rotate: isPlaying ? 360 : 0 }} transition={{ duration: 3, repeat: isPlaying ? Infinity : 0, ease: "linear" }} className="w-12 h-12 rounded-full border-2 border-white overflow-hidden">
-                            <img src={reel.userPhoto || `https://ui-avatars.com/api/?name=${reel.userDisplayName}`} className="w-full h-full object-cover" alt="" />
+                        <motion.div
+                            animate={{ rotate: isPlaying ? 360 : 0 }}
+                            transition={{ duration: 5, repeat: isPlaying ? Infinity : 0, ease: "linear" }}
+                            className="w-12 h-12 rounded-full border-4 border-white/20 p-1 bg-black/50"
+                        >
+                            <UserAvatar
+                                src={reel.userPhoto}
+                                name={reel.userDisplayName}
+                                size="full"
+                            />
                         </motion.div>
                     </div>
                 </div>
@@ -343,6 +361,7 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
         </div>
     );
 };
+
 
 export default function Reels() {
     const [activeIndex, setActiveIndex] = useState(0);
@@ -352,6 +371,7 @@ export default function Reels() {
     const [commentText, setCommentText] = useState('');
     const { currentUser } = useAuth();
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
 
     const { data: reels, isLoading, error } = useQuery({
         queryKey: ['reels'],
@@ -439,7 +459,11 @@ export default function Reels() {
                 {globalMuted ? <VolumeX size={24} className="text-white" /> : <Volume2 size={24} className="text-white" />}
             </button>
 
-            <button onClick={() => setIsUploadOpen(true)} className="fixed top-4 left-4 z-50 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
+            <button onClick={() => navigate(-1)} className="fixed top-4 left-4 z-50 w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg border border-white/10 hover:bg-white/30 transition-all">
+                <ArrowLeft size={24} className="text-white" />
+            </button>
+
+            <button onClick={() => setIsUploadOpen(true)} className="fixed top-20 left-4 z-50 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-transform">
                 <Plus size={24} className="text-black" />
             </button>
 
@@ -450,7 +474,7 @@ export default function Reels() {
                             key={reel._id}
                             reel={reel}
                             isActive={index === activeIndex}
-                            shouldRenderVideo={Math.abs(index - activeIndex) <= 2}
+                            shouldRenderVideo={Math.abs(index - activeIndex) <= 3}
                             currentUser={currentUser}
                             globalMuted={globalMuted}
                             showComments={showComments}

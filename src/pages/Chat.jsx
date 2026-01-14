@@ -4,13 +4,14 @@ import { useAuth } from '../context/AuthContext';
 import { searchUsers, getChatRoomId, sendMessage, fetchMessages, fetchConversations } from '../services/chatService';
 import { Search, Send, User as UserIcon, MoreVertical, Phone, Video, ArrowLeft, MessageSquare, Sparkles } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import UserAvatar from '../components/UserAvatar';
 
 export default function Chat() {
     const { currentUser } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [conversations, setConversations] = useState([]);
-    
+
     // Persist Active Chat User
     const [activeChatUser, setActiveChatUser] = useState(() => {
         const saved = localStorage.getItem('last_active_chat_user');
@@ -48,12 +49,12 @@ export default function Chat() {
     // Handle Search
     useEffect(() => {
         const timer = setTimeout(async () => {
-             if(searchTerm.length > 1) {
-                 const results = await searchUsers(searchTerm);
-                 setSearchResults(results.filter(u => u.uid !== currentUser.uid));
-             } else {
-                 setSearchResults([]);
-             }
+            if (searchTerm.length > 1) {
+                const results = await searchUsers(searchTerm);
+                setSearchResults(results.filter(u => u.uid !== currentUser.uid));
+            } else {
+                setSearchResults([]);
+            }
         }, 500);
         return () => clearTimeout(timer);
     }, [searchTerm, currentUser.uid]);
@@ -74,25 +75,25 @@ export default function Chat() {
     useEffect(() => {
         let interval;
         const loadChatData = async () => {
-             if (!activeChatUser) return;
-             
-             // 1. Fetch Messages
-             try {
+            if (!activeChatUser) return;
+
+            // 1. Fetch Messages
+            try {
                 const roomId = getChatRoomId(currentUser.uid, activeChatUser.uid);
                 const msgs = await fetchMessages(roomId);
                 setMessages(msgs);
-             } catch(e) {
+            } catch (e) {
                 console.error("Poll failed", e);
-             }
+            }
 
-             // 2. Fetch User Latest Status (to check online)
-             if (activeChatUser.uid && activeChatUser.uid !== 'gemini_group') {
+            // 2. Fetch User Latest Status (to check online)
+            if (activeChatUser.uid && activeChatUser.uid !== 'gemini_group') {
                 try {
                     const apiClient = (await import('../services/apiClient')).default;
                     const res = await apiClient.get(`/users/${activeChatUser.uid}`);
                     setActiveChatUser(prev => ({ ...prev, lastSeen: res.data.lastSeen }));
-                } catch(e) {}
-             }
+                } catch (e) { }
+            }
         };
 
         if (activeChatUser) {
@@ -106,7 +107,7 @@ export default function Chat() {
     const handleSend = async () => {
         if (!inputText.trim() || !activeChatUser) return;
         const roomId = getChatRoomId(currentUser.uid, activeChatUser.uid);
-        
+
         const currentText = inputText;
         setInputText('');
 
@@ -124,7 +125,7 @@ export default function Chat() {
             // Immediate refresh of conversation list
             const data = await fetchConversations(currentUser.uid);
             setConversations(data);
-        } catch(e) {
+        } catch (e) {
             console.error("Send failed", e);
         }
     };
@@ -138,9 +139,9 @@ export default function Chat() {
                         <h2 className="text-3xl font-display font-black text-white italic tracking-tighter">Vibe<span className="text-primary">.</span></h2>
                         <div className="p-2 bg-white/5 rounded-xl text-gray-400"><MessageSquare size={20} /></div>
                     </div>
-                    
+
                     {/* Gemini AI Group - Pin */}
-                    <motion.div 
+                    <motion.div
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => setActiveChatUser({ uid: 'gemini_group', displayName: "Gemini AI Council", photoURL: "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" })}
@@ -156,8 +157,8 @@ export default function Chat() {
 
                     <div className="relative group">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-primary transition-colors" size={18} />
-                        <input 
-                            placeholder="Find your tribe..." 
+                        <input
+                            placeholder="Find your tribe..."
                             className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-white outline-none focus:border-primary focus:bg-white/10 transition-all font-medium"
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
@@ -172,13 +173,13 @@ export default function Chat() {
                             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="px-3 space-y-1 mb-6">
                                 <p className="text-[10px] font-black text-gray-500 px-4 mb-2 tracking-[0.2em] uppercase">Search Hits</p>
                                 {searchResults.map(user => (
-                                    <div 
+                                    <div
                                         key={user.uid}
                                         onClick={() => { setActiveChatUser(user); setSearchTerm(''); }}
                                         className="flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl cursor-pointer transition-all border border-transparent hover:border-white/5 group"
                                     >
                                         <div className="relative">
-                                            <img src={user.photoURL} alt={user.displayName} className="w-12 h-12 rounded-full bg-gray-800 object-cover border-2 border-white/10" />
+                                            <UserAvatar src={user.photoURL} name={user.displayName} size="md" className="border-2 border-white/10" />
                                             <StatusDot online={isOnline(user.lastSeen)} />
                                         </div>
                                         <div>
@@ -195,13 +196,13 @@ export default function Chat() {
                     <div className="px-3 space-y-1">
                         <p className="text-[10px] font-black text-gray-500 px-4 mb-2 tracking-[0.2em] uppercase">Recent Vibe</p>
                         {conversations.length > 0 ? conversations.map(conv => (
-                            <div 
+                            <div
                                 key={conv.user.uid}
                                 onClick={() => setActiveChatUser(conv.user)}
                                 className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all border group ${activeChatUser?.uid === conv.user.uid ? 'bg-white/10 border-white/20' : 'border-transparent hover:bg-white/5 hover:border-white/5'}`}
                             >
                                 <div className="relative">
-                                    <img src={conv.user.photoURL} className="w-12 h-12 rounded-full object-cover border-2 border-white/10" />
+                                    <UserAvatar src={conv.user.photoURL} name={conv.user.displayName} size="md" className="border-2 border-white/10" />
                                     <StatusDot online={isOnline(conv.user.lastSeen)} />
                                 </div>
                                 <div className="flex-1 overflow-hidden">
@@ -234,7 +235,7 @@ export default function Chat() {
                                     <ArrowLeft size={24} />
                                 </button>
                                 <div className="relative">
-                                    <img src={activeChatUser.photoURL} className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-white/10 shadow-lg" />
+                                    <UserAvatar src={activeChatUser.photoURL} name={activeChatUser.displayName} size="md" className="border-2 border-white/10 shadow-lg" />
                                     {activeChatUser.uid !== 'gemini_group' && (
                                         <StatusDot online={isOnline(activeChatUser.lastSeen)} />
                                     )}
@@ -266,19 +267,18 @@ export default function Chat() {
                                 const isMe = msg.senderId === currentUser.uid;
                                 const isAI = msg.senderId === 'gemini_bot';
                                 return (
-                                    <motion.div 
+                                    <motion.div
                                         key={msg.id || i}
                                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
                                         className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
                                     >
-                                        <div className={`group relative max-w-[85%] md:max-w-[70%] px-5 md:px-6 py-3.5 md:py-4 rounded-[2rem] text-sm md:text-base font-medium shadow-xl transition-all ${
-                                            isMe 
-                                            ? 'bg-primary text-black rounded-tr-none' 
-                                            : isAI 
-                                              ? 'bg-gradient-to-br from-blue-900/60 to-purple-900/60 text-white rounded-tl-none border border-white/20 backdrop-blur-md'
-                                              : 'bg-white/5 text-white rounded-tl-none border border-white/10 backdrop-blur-sm'
-                                        }`}>
+                                        <div className={`group relative max-w-[85%] md:max-w-[70%] px-5 md:px-6 py-3.5 md:py-4 rounded-[2rem] text-sm md:text-base font-medium shadow-xl transition-all ${isMe
+                                            ? 'bg-primary text-black rounded-tr-none'
+                                            : isAI
+                                                ? 'bg-gradient-to-br from-blue-900/60 to-purple-900/60 text-white rounded-tl-none border border-white/20 backdrop-blur-md'
+                                                : 'bg-white/5 text-white rounded-tl-none border border-white/10 backdrop-blur-sm'
+                                            }`}>
                                             {msg.text}
                                             <span className={`absolute -bottom-5 text-[10px] font-bold text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity ${isMe ? 'right-0' : 'left-0'}`}>
                                                 {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -299,7 +299,7 @@ export default function Chat() {
                         <div className="p-6 md:p-8 bg-black/60 backdrop-blur-2xl border-t border-white/10">
                             <div className="flex gap-4 max-w-5xl mx-auto">
                                 <div className="flex-1 relative group">
-                                    <input 
+                                    <input
                                         className="w-full bg-white/5 border border-white/15 rounded-3xl px-6 md:px-8 py-4 md:py-5 text-white outline-none focus:border-primary focus:bg-white/10 transition-all shadow-2xl placeholder:text-gray-600 font-medium md:text-lg"
                                         placeholder="Broadcast a frequency..."
                                         value={inputText}
@@ -307,10 +307,10 @@ export default function Chat() {
                                         onKeyDown={e => e.key === 'Enter' && handleSend()}
                                     />
                                     <div className="absolute right-4 top-1/2 -translate-y-1/2 hidden md:flex gap-2">
-                                         {/* Emoji / Attachment icons could go here */}
+                                        {/* Emoji / Attachment icons could go here */}
                                     </div>
                                 </div>
-                                <motion.button 
+                                <motion.button
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={handleSend}

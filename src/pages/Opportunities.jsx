@@ -10,7 +10,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 
 const JobCard = ({ job, onApply }) => (
-    <motion.div 
+    <motion.div
         whileHover={{ y: -5 }}
         className="bg-surface p-6 rounded-3xl border border-white/5 hover:border-secondary/50 transition-colors group relative overflow-hidden"
     >
@@ -42,8 +42,8 @@ const JobCard = ({ job, onApply }) => (
                 <DollarSign size={14} /> {job.stipend || 'Unpaid'}
             </div>
         </div>
-        
-        <button 
+
+        <button
             onClick={() => onApply(job)}
             className="w-full mt-4 bg-white text-black font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors"
         >
@@ -73,7 +73,8 @@ export default function Opportunities() {
             });
         } catch (e) {
             console.error(e);
-            alert("Failed to apply");
+            alert(e.response?.data?.error || "Failed to apply");
+            throw e;
         }
     };
 
@@ -81,14 +82,14 @@ export default function Opportunities() {
 
     return (
         <div className="pt-4 pb-20">
-             <header className="mb-12 flex justify-between items-end">
+            <header className="mb-12 flex justify-between items-end">
                 <div>
                     <h1 className="text-5xl font-display font-black text-white mb-4">Gigs</h1>
                     <p className="text-gray-400 text-xl">Get paid. Buy skins. Repeat.</p>
                 </div>
-                
+
                 {/* Available for everyone for testing, ideally restrict to Alumni/Admin */}
-                <button 
+                <button
                     onClick={() => setIsCreateModalOpen(true)}
                     className="bg-primary text-black font-bold px-6 py-3 rounded-2xl flex items-center gap-2 hover:bg-yellow-400 transition-all hover:scale-105"
                 >
@@ -110,15 +111,15 @@ export default function Opportunities() {
 
             <AnimatePresence>
                 {selectedJob && (
-                    <ApplyJobModal 
-                        isOpen={!!selectedJob} 
-                        onClose={() => setSelectedJob(null)} 
+                    <ApplyJobModal
+                        isOpen={!!selectedJob}
+                        onClose={() => setSelectedJob(null)}
                         job={selectedJob}
                         onApply={handleApply}
                     />
                 )}
                 {isCreateModalOpen && (
-                    <CreateJobModal 
+                    <CreateJobModal
                         isOpen={isCreateModalOpen}
                         onClose={() => setIsCreateModalOpen(false)}
                         onCreated={() => queryClient.invalidateQueries(['jobs'])}

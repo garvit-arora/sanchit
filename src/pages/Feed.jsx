@@ -6,6 +6,7 @@ import { fetchFeed, likePost, addComment, deletePost, reportPost } from '../serv
 import CreatePostModal from '../components/CreatePostModal';
 import { Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import UserAvatar from '../components/UserAvatar';
 
 const PostCard = ({ post }) => {
     const { currentUser } = useAuth();
@@ -29,7 +30,7 @@ const PostCard = ({ post }) => {
     const hasLiked = post.likes?.includes(currentUser?.uid);
 
     return (
-        <motion.div 
+        <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             className="bg-surface border border-white/5 rounded-3xl overflow-hidden mb-8"
@@ -37,13 +38,12 @@ const PostCard = ({ post }) => {
             {/* Header */}
             <div className="p-4 md:p-6 flex justify-between items-center bg-white/[0.02]">
                 <div className="flex items-center gap-3 md:gap-4">
-                    {post.authorPhoto ? (
-                        <img src={post.authorPhoto} className="w-10 h-10 md:w-14 md:h-14 rounded-2xl object-cover border border-white/10 ring-2 ring-white/5" />
-                    ) : (
-                        <div className="w-10 h-10 md:w-14 md:h-14 rounded-2xl bg-gradient-to-tr from-secondary to-primary flex items-center justify-center font-black text-black text-xl shadow-lg">
-                            {post.author?.[0]}
-                        </div>
-                    )}
+                    <UserAvatar
+                        src={post.authorPhoto}
+                        name={post.author}
+                        size="md"
+                        className="rounded-2xl border border-white/10 ring-2 ring-white/5"
+                    />
                     <div>
                         <div className="flex items-center gap-2">
                             <h3 className="font-black text-white md:text-xl tracking-tight leading-none">{post.author}</h3>
@@ -54,14 +54,14 @@ const PostCard = ({ post }) => {
                         </p>
                     </div>
                 </div>
-                
+
                 <div className="relative group/menu">
                     <button className="text-gray-500 hover:text-white p-2 rounded-xl hover:bg-white/5 transition-all"><MoreHorizontal /></button>
                     <div className="absolute right-0 top-full mt-2 w-48 bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-2xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-20 overflow-hidden backdrop-blur-3xl">
                         {post.authorId === currentUser?.uid ? (
-                            <button 
+                            <button
                                 onClick={() => {
-                                    if(window.confirm("Delete this drop?")) {
+                                    if (window.confirm("Delete this drop?")) {
                                         deletePost(post._id).then(() => queryClient.invalidateQueries(['feed']));
                                     }
                                 }}
@@ -70,10 +70,10 @@ const PostCard = ({ post }) => {
                                 <Trash2 size={18} /> ERASE DROP
                             </button>
                         ) : (
-                            <button 
+                            <button
                                 onClick={() => {
                                     const reason = window.prompt("Why are you reporting this frequency?");
-                                    if(reason) {
+                                    if (reason) {
                                         reportPost(post._id, currentUser.uid, reason).then(() => alert("Reported to moderators."));
                                     }
                                 }}
@@ -95,14 +95,14 @@ const PostCard = ({ post }) => {
             {post.video ? (
                 <div className="w-full aspect-video bg-black relative mb-2">
                     {post.video.includes('youtube.com') || post.video.includes('youtu.be') ? (
-                        <iframe 
+                        <iframe
                             src={`https://www.youtube.com/embed/${post.video.split('v=')[1]?.split('&')[0] || post.video.split('/').pop()}`}
                             className="w-full h-full border-none"
                             allowFullScreen
                         />
                     ) : (
-                        <video 
-                            src={post.video} 
+                        <video
+                            src={post.video}
                             className="w-full h-full object-contain"
                             controls
                             playsInline
@@ -111,7 +111,7 @@ const PostCard = ({ post }) => {
                 </div>
             ) : post.image && (
                 <div className="w-full max-h-[600px] bg-gray-900 border-y border-white/5 overflow-hidden">
-                     <img src={post.image} alt="Drop Visual" className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" />
+                    <img src={post.image} alt="Drop Visual" className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" />
                 </div>
             )}
 
@@ -132,15 +132,15 @@ const PostCard = ({ post }) => {
 
             {/* Actions */}
             <div className="p-4 border-t border-white/5 bg-white/5 backdrop-blur-sm grid grid-cols-2 gap-4">
-                <motion.button 
-                    whileTap={{ scale: 0.9 }} 
+                <motion.button
+                    whileTap={{ scale: 0.9 }}
                     onClick={() => likeMutation.mutate()}
                     className={`py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-colors ${hasLiked ? 'bg-orange-500/20 text-orange-500' : 'bg-white/5 text-white hover:bg-white/10'}`}
                 >
                     <Flame className={hasLiked ? "fill-current" : ""} /> {post.likes?.length || 0}
                 </motion.button>
-                <motion.button 
-                    whileTap={{ scale: 0.9 }} 
+                <motion.button
+                    whileTap={{ scale: 0.9 }}
                     onClick={() => setShowComments(!showComments)}
                     className="bg-white/5 hover:bg-white/10 py-3 rounded-xl flex items-center justify-center gap-2 text-white font-bold transition-colors"
                 >
@@ -160,7 +160,7 @@ const PostCard = ({ post }) => {
                                 </div>
                             ))}
                             <div className="flex gap-2 relative">
-                                <input 
+                                <input
                                     className="w-full bg-white/5 rounded-xl px-4 py-2 text-white outline-none focus:ring-1 focus:ring-primary text-sm"
                                     placeholder="Add a comment..."
                                     value={commentText}
@@ -223,7 +223,7 @@ export default function Feed() {
 
             <AnimatePresence>
                 {showScrollTop && (
-                    <motion.button 
+                    <motion.button
                         initial={{ opacity: 0, scale: 0.5 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.5 }}
@@ -235,7 +235,7 @@ export default function Feed() {
                 )}
             </AnimatePresence>
 
-            <motion.button 
+            <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setIsPostModalOpen(true)}

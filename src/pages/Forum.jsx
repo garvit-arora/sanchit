@@ -1,55 +1,195 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchForum, createForumPost, voteForumThread } from '../services/api';
-import { MessageSquare, ArrowBigUp, ArrowBigDown, Hash, Plus, X } from 'lucide-react';
+import { fetchForum, createForumPost, voteForumThread, addForumComment, replyForumComment } from '../services/api';
+import { MessageSquare, ArrowBigUp, ArrowBigDown, Hash, Plus, X, Send, Reply } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 
-const ForumPost = ({ post, onVote, currentUser }) => (
-    <motion.div 
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-surface border border-white/5 rounded-2xl p-4 md:p-6 mb-4 hover:border-white/20 transition-all cursor-pointer flex gap-4"
-    >
-        {/* Voting - Connected to Backend */}
-        <div className="flex flex-col items-center gap-1 bg-black/20 p-2 rounded-xl h-fit">
-            <button 
-                onClick={(e) => { e.stopPropagation(); onVote(post._id, 'up'); }}
-                className="text-gray-500 hover:text-orange-500 transition-colors"
-            >
-                <ArrowBigUp size={28} className={post.upvotes?.includes(currentUser?.uid) ? "fill-orange-500 text-orange-500" : ""} />
-            </button>
-            <span className="font-bold text-white text-sm">{post.upvotes?.length || 0}</span>
-            <button 
-                onClick={(e) => { e.stopPropagation(); onVote(post._id, 'down'); }}
-                className="text-gray-500 hover:text-blue-500 transition-colors"
-            >
-                <ArrowBigDown size={28} className={post.downvotes?.includes(currentUser?.uid) ? "fill-blue-500 text-blue-500" : ""} />
-            </button>
-        </div>
+const Comment = ({ comment, threadId, currentUser, queryClient }) => {
+    const [showReplyForm, setShowReplyForm] = useState(false);
+    const [replyText, setReplyText] = useState('');
 
-        {/* Content */}
-        <div className="flex-1">
-            <h3 className="text-xl font-bold text-white mb-2 leading-tight">{post.title}</h3>
-            <p className="text-gray-400 text-sm line-clamp-3 mb-4">{post.content}</p>
-            
-            <div className="flex items-center gap-4 text-xs font-bold text-gray-500">
-                <span className="flex items-center gap-1">
-                    <div className="w-5 h-5 rounded-full bg-gradient-to-r from-pink-500 to-purple-500" />
-                    {post.author}
-                </span>
-                <span className="flex items-center gap-1 hover:bg-white/5 p-1 rounded-md transition-colors"><MessageSquare size={14} /> {post.comments?.length || 0} Comments</span>
-                <div className="flex gap-2">
-                    {post.tags?.map(tag => (
-                        <span key={tag} className="flex items-center gap-0.5 text-primary">
-                            <Hash size={12} />{tag}
-                        </span>
-                    ))}
+    const replyMutation = useMutation({
+        mutationFn: () => replyForumComment(threadId, comment._id, replyText, currentUser.displayName, currentUser.uid),
+        onSuccess: () => {
+            queryClient.invalidateQueries(['forum']);
+            setReplyText('');
+            setShowReplyForm(false);
+        }
+    });
+
+    return (
+        <div className="space-y-4">
+            <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-xs font-bold text-gray-400 border border-white/10 shrink-0">
+                    {comment.author?.[0]}
+                </div>
+                <div className="flex-1 bg-white/[0.02] p-4 rounded-2xl border border-white/5 relative group">
+                    <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs font-black text-white">{comment.author}</span>
+                        <span className="text-[10px] text-gray-600 font-bold">{new Date(comment.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <p className="text-sm text-gray-300 mb-2">{comment.text}</p>
+
+                    <button
+                        onClick={() => setShowReplyForm(!showReplyForm)}
+                        className="flex items-center gap-1.5 text-[10px] font-black text-gray-500 hover:text-primary uppercase tracking-widest transition-colors"
+                    >
+                        <Reply size={12} /> Reply
+                    </button>
                 </div>
             </div>
+
+            {/* Reply Form */}
+            {showReplyForm && (
+                <div className="ml-11 flex gap-2 items-center">
+                    <input
+                        className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-2 text-xs text-white outline-none focus:border-primary transition-colors"
+                        placeholder={`Reply to ${comment.author}...`}
+                        value={replyText}
+                        onChange={e => setReplyText(e.target.value)}
+                        autoFocus
+                    />
+                    <button
+                        onClick={() => replyMutation.mutate()}
+                        disabled={!replyText.trim() || replyMutation.isPending}
+                        className="p-2 bg-primary text-black rounded-lg hover:bg-yellow-400 disabled:opacity-50 transition-all"
+                    >
+                        <Send size={14} />
+                    </button>
+                </div>
+            )}
+
+            {/* Replies List */}
+            {comment.replies && comment.replies.length > 0 && (
+                <div className="ml-11 space-y-4 border-l-2 border-white/5 pl-4">
+                    {comment.replies.map((reply, rid) => (
+                        <div key={rid} className="flex gap-3">
+                            <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-[10px] font-bold text-gray-400 border border-white/10 shrink-0">
+                                {reply.author?.[0]}
+                            </div>
+                            <div className="flex-1 bg-white/[0.01] p-3 rounded-xl border border-white/5">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="text-[10px] font-black text-white">{reply.author}</span>
+                                    <span className="text-[9px] text-gray-600 font-bold">{new Date(reply.createdAt).toLocaleDateString()}</span>
+                                </div>
+                                <p className="text-xs text-gray-400 leading-relaxed">{reply.text}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
-    </motion.div>
-);
+    );
+};
+
+const ForumPost = ({ post, onVote, currentUser }) => {
+    const [showComments, setShowComments] = useState(false);
+    const [commentText, setCommentText] = useState('');
+    const queryClient = useQueryClient();
+
+    const commentMutation = useMutation({
+        mutationFn: () => addForumComment(post._id, commentText, currentUser.displayName, currentUser.uid),
+        onSuccess: () => {
+            queryClient.invalidateQueries(['forum']);
+            setCommentText('');
+        }
+    });
+
+    return (
+        <div className="mb-4">
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                onClick={() => setShowComments(!showComments)}
+                className={`bg-surface border border-white/10 rounded-2xl p-4 md:p-6 hover:border-primary/50 hover:bg-white/[0.02] shadow-xl transition-all cursor-pointer flex gap-4 ${showComments ? 'rounded-b-none border-b-0 border-primary/50' : ''}`}
+            >
+                {/* Voting - Connected to Backend */}
+                <div className="flex flex-col items-center gap-1 bg-black/20 p-2 rounded-xl h-fit">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onVote(post._id, 'up'); }}
+                        className="text-gray-500 hover:text-orange-500 transition-colors"
+                    >
+                        <ArrowBigUp size={28} className={post.upvotes?.includes(currentUser?.uid) ? "fill-orange-500 text-orange-500" : ""} />
+                    </button>
+                    <span className="font-bold text-white text-sm">{post.upvotes?.length || 0}</span>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onVote(post._id, 'down'); }}
+                        className="text-gray-500 hover:text-blue-500 transition-colors"
+                    >
+                        <ArrowBigDown size={28} className={post.downvotes?.includes(currentUser?.uid) ? "fill-blue-500 text-blue-500" : ""} />
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1">
+                    <h3 className="text-xl font-bold text-white mb-2 leading-tight">{post.title}</h3>
+                    <p className="text-gray-400 text-sm line-clamp-3 mb-4">{post.content}</p>
+
+                    <div className="flex items-center gap-4 text-xs font-bold text-gray-500">
+                        <span className="flex items-center gap-1">
+                            <div className="w-5 h-5 rounded-full bg-gradient-to-r from-pink-500 to-purple-500" />
+                            {post.author}
+                        </span>
+                        <span className="flex items-center gap-1 hover:bg-white/5 p-1 rounded-md transition-colors font-black tracking-widest uppercase text-[10px]">
+                            <MessageSquare size={14} /> {post.comments?.length || 0} Threads
+                        </span>
+                        <div className="flex gap-2">
+                            {post.tags?.map(tag => (
+                                <span key={tag} className="flex items-center gap-0.5 text-primary">
+                                    <Hash size={12} />{tag}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </motion.div>
+
+            <AnimatePresence>
+                {showComments && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="bg-surface/50 border-x border-b border-white/5 rounded-b-2xl overflow-hidden"
+                    >
+                        <div className="p-4 md:p-6">
+                            <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-6">Discussion Threads</h4>
+                            <div className="space-y-6">
+                                {post.comments?.map((comment) => (
+                                    <Comment
+                                        key={comment._id}
+                                        comment={comment}
+                                        threadId={post._id}
+                                        currentUser={currentUser}
+                                        queryClient={queryClient}
+                                    />
+                                ))}
+                            </div>
+
+                            <div className="flex gap-2 items-center mt-8 pt-6 border-t border-white/5">
+                                <input
+                                    className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-primary transition-colors font-medium"
+                                    placeholder="Start a sub-thread..."
+                                    value={commentText}
+                                    onChange={e => setCommentText(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && commentMutation.mutate()}
+                                />
+                                <button
+                                    onClick={() => commentMutation.mutate()}
+                                    disabled={!commentText.trim() || commentMutation.isPending}
+                                    className="p-3 bg-primary text-black rounded-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                                >
+                                    <Send size={20} />
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+};
 
 const CreateThreadModal = ({ isOpen, onClose }) => {
     const [title, setTitle] = useState('');
@@ -60,7 +200,7 @@ const CreateThreadModal = ({ isOpen, onClose }) => {
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async () => {
-        if(!title || !content) return;
+        if (!title || !content) return;
         setIsLoading(true);
         try {
             await createForumPost(title, content, tags.split(',').map(t => t.trim()), currentUser);
@@ -72,37 +212,37 @@ const CreateThreadModal = ({ isOpen, onClose }) => {
         setIsLoading(false);
     };
 
-    if(!isOpen) return null;
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <motion.div initial={{scale:0.9, opacity:0}} animate={{scale:1, opacity:1}} className="bg-surface border border-white/10 p-6 rounded-2xl w-full max-w-lg relative">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-surface border border-white/10 p-6 rounded-2xl w-full max-w-lg relative">
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white"><X /></button>
                 <h2 className="text-2xl font-black text-white mb-6">Start Discussion</h2>
-                
-                <input 
+
+                <input
                     className="w-full bg-black/30 border border-white/10 rounded-xl p-3 text-white font-bold text-lg mb-4 outline-none focus:border-primary"
                     placeholder="Title (e.g., Best place to cry on campus?)"
                     value={title}
                     onChange={e => setTitle(e.target.value)}
                 />
 
-                <textarea 
+                <textarea
                     className="w-full h-32 bg-black/30 border border-white/10 rounded-xl p-3 text-white mb-4 outline-none focus:border-primary resize-none"
                     placeholder="Elaborate..."
                     value={content}
                     onChange={e => setContent(e.target.value)}
                 />
 
-                <input 
+                <input
                     className="w-full bg-black/30 border border-white/10 rounded-xl p-3 text-gray-300 text-sm mb-6 outline-none focus:border-primary"
                     placeholder="Tags (comma separated: cse, rant, help)"
                     value={tags}
                     onChange={e => setTags(e.target.value)}
                 />
 
-                <button 
-                    onClick={handleSubmit} 
+                <button
+                    onClick={handleSubmit}
                     disabled={isLoading}
                     className="w-full bg-white text-black font-black py-3 rounded-xl hover:scale-[1.02] transition-transform"
                 >
@@ -122,7 +262,7 @@ export default function Forum() {
 
     const queryClient = useQueryClient();
     const { currentUser } = useAuth();
-    
+
     const handleVote = async (threadId, type) => {
         try {
             await voteForumThread(threadId, currentUser.uid, type);
@@ -134,7 +274,7 @@ export default function Forum() {
 
     return (
         <div className="max-w-3xl mx-auto pt-4 relative pb-20">
-             <div className="flex justify-between items-center mb-8">
+            <div className="flex justify-between items-center mb-8">
                 <div>
                     <h1 className="text-4xl font-display font-black text-white">Forum</h1>
                     <p className="text-gray-400">The front page of your campus.</p>
@@ -142,9 +282,9 @@ export default function Forum() {
                 <button onClick={() => setModalOpen(true)} className="bg-primary text-black font-bold px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-yellow-400 transition-colors">
                     <Plus size={20} /> New Thread
                 </button>
-             </div>
+            </div>
 
-             <div className="space-y-4">
+            <div className="space-y-4">
                 {/* Fake Pinned Post */}
                 <ForumPost post={{
                     title: "Welcome to Sanchit Forum! Read the rules before posting.",
@@ -154,16 +294,16 @@ export default function Forum() {
                     downvotes: [],
                     comments: [],
                     tags: ['pinned', 'rules']
-                }} currentUser={{ uid: 'admin' }} onVote={() => {}} />
+                }} currentUser={{ uid: 'admin' }} onVote={() => { }} />
 
-                {isLoading ? <p className="text-gray-500 animate-pulse">Loading threads...</p> : 
+                {isLoading ? <p className="text-gray-500 animate-pulse">Loading threads...</p> :
                     posts?.map(post => <ForumPost key={post._id} post={post} onVote={handleVote} currentUser={currentUser} />)
                 }
-             </div>
+            </div>
 
-             <AnimatePresence>
+            <AnimatePresence>
                 {isModalOpen && <CreateThreadModal isOpen={isModalOpen} onClose={() => setModalOpen(false)} />}
-             </AnimatePresence>
+            </AnimatePresence>
         </div>
     );
 }
