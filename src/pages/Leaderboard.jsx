@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { Flame } from 'lucide-react';
 import gsap from 'gsap';
 
@@ -20,49 +21,75 @@ const RankRow = ({ rank, name, solved, department, isUser }) => {
 
 export default function Leaderboard() {
     const listRef = useRef(null);
-
-    // Mock Data reflecting "local" context
-    const students = [
-        { name: "Aditya Verma", solved: 450, dept: "CSE", isUser: false },
-        { name: "Sarah Khan", solved: 423, dept: "IT", isUser: false },
-        { name: "You", solved: 310, dept: "ECE", isUser: true },
-        { name: "Vikram Singh", solved: 290, dept: "CSE", isUser: false },
-        { name: "Priya P.", solved: 215, dept: "MECH", isUser: false },
-    ];
+    const [filter, setFilter] = useState('Global');
+    const [students, setStudents] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const { currentUser } = useAuth();
 
     useEffect(() => {
-        gsap.fromTo(listRef.current.children,
-            { opacity: 0, x: -20 },
-            { opacity: 1, x: 0, duration: 0.4, stagger: 0.1, ease: "power2.out" }
-        );
-    }, []);
+        const fetchLeaderboard = async () => {
+            setLoading(true);
+            try {
+                const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+                const query = filter === 'Global' ? '' : `?filter=${filter}`;
+                const res = await fetch(`${API_BASE}/leaderboard${query}`);
+                const data = await res.json();
+                setStudents(data);
+            } catch (err) {
+                console.error("Failed to fetch leaderboard", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchLeaderboard();
+    }, [filter]);
+
+    useEffect(() => {
+        if (!loading && listRef.current) {
+            gsap.fromTo(listRef.current.children,
+                { opacity: 0, x: -20 },
+                { opacity: 1, x: 0, duration: 0.4, stagger: 0.1, ease: "power2.out" }
+            );
+        }
+    }, [students, loading]);
 
     return (
         <div className="pt-4 pb-20">
             <header className="mb-8">
                 <h1 className="text-4xl font-display font-black text-white">Rankings</h1>
-                <p className="text-gray-400">See who's coding the most in your hostel.</p>
+                <p className="text-gray-400">See who's coding the most.</p>
 
                 <div className="flex gap-2 mt-6 overflow-x-auto pb-2 scrollbar-hide">
-                    {['Hostel H1', 'College', 'Department', 'Global'].map((filter, i) => (
-                        <button key={i} className={`px-5 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${i === 0 ? 'bg-primary text-black' : 'bg-white/5 text-gray-400 hover:text-white border border-white/10'}`}>
-                            {filter}
+                    {['Global', 'CSE', 'IT', 'ECE'].map((f) => (
+                        <button
+                            key={f}
+                            onClick={() => setFilter(f)}
+                            className={`px-5 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${filter === f ? 'bg-primary text-black' : 'bg-white/5 text-gray-400 hover:text-white border border-white/10'}`}
+                        >
+                            {f}
                         </button>
                     ))}
                 </div>
             </header>
 
             <div ref={listRef} className="space-y-2">
-                {students.map((student, i) => (
-                    <RankRow
-                        key={i}
-                        rank={i + 1}
-                        name={student.name}
-                        solved={student.solved}
-                        department={student.dept}
-                        isUser={student.isUser}
-                    />
-                ))}
+                {loading ? (
+                    <p className="text-gray-500 text-center py-10">Loading rankings...</p>
+                ) : (
+                    students.length > 0 ? students.map((student, i) => (
+                        <RankRow
+                            key={i}
+                            rank={i + 1}
+                            name={student.displayName || student.username || 'Anonymous'}
+                            solved={student.leetcodeStats?.solved || 0}
+                            department={student.department || 'General'}
+                            isUser={currentUser?.uid === student.uid} // This might need uid in projection
+                        />
+                    )) : (
+                        <p className="text-gray-500 text-center py-10">No rankings found for this category.</p>
+                    )
+                )}
             </div>
         </div>
     );

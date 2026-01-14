@@ -51,7 +51,7 @@ export default function Layout({ children }) {
                     )}
                 </nav>
 
-                <MiniLeaderboard />
+                {/* Mini Leaderboard Removed */}
 
                 <div className="mt-4 pt-6 border-t border-white/10">
                     <NavLink to="/profile" className={({ isActive }) => `
