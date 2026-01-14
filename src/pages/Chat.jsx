@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { searchUsers, getChatRoomId, sendMessage, fetchMessages, fetchConversations } from '../services/chatService';
 import { Search, Send, User as UserIcon, MoreVertical, Phone, Video, ArrowLeft, MessageSquare, Sparkles } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
 
 export default function Chat() {
     const { currentUser } = useAuth();
@@ -89,7 +88,8 @@ export default function Chat() {
              // 2. Fetch User Latest Status (to check online)
              if (activeChatUser.uid && activeChatUser.uid !== 'gemini_group') {
                 try {
-                    const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/users/${activeChatUser.uid}`);
+                    const apiClient = (await import('../services/apiClient')).default;
+                    const res = await apiClient.get(`/users/${activeChatUser.uid}`);
                     setActiveChatUser(prev => ({ ...prev, lastSeen: res.data.lastSeen }));
                 } catch(e) {}
              }

@@ -16,7 +16,7 @@ export const AuthProvider = ({ children }) => {
     if (!user) return;
     try {
       const token = await user.getIdToken();
-      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+      const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       const res = await axios.post(`${API_BASE}/auth/sync`, {
         email: user.email,
         displayName: user.displayName,
@@ -29,6 +29,7 @@ export const AuthProvider = ({ children }) => {
       return res.data;
     } catch (error) {
       console.error("Failed to sync profile:", error);
+      // Don't throw - allow app to continue
     }
   };
 

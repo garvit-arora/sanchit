@@ -1,17 +1,15 @@
-import axios from 'axios';
+import apiClient, { API_URL } from './apiClient';
 import { collection, query, orderBy, limit, getDocs, addDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
-
 // --- POSTS (Feed) via MongoDB ---
 export const fetchFeed = async () => {
-    const res = await axios.get(`${API_URL}/posts`);
+    const res = await apiClient.get('/posts');
     return res.data;
 };
 
 export const createPost = async (content, image, video, song, user) => {
-    const res = await axios.post(`${API_URL}/posts`, {
+    const res = await apiClient.post('/posts', {
         content,
         image, // Base64 or URL
         video, // URL
@@ -24,28 +22,28 @@ export const createPost = async (content, image, video, song, user) => {
 };
 
 export const likePost = async (postId, userId) => {
-    const res = await axios.put(`${API_URL}/posts/${postId}/like`, { userId });
+    const res = await apiClient.put(`/posts/${postId}/like`, { userId });
     return res.data;
 };
 
 export const addComment = async (postId, text, author) => {
-    const res = await axios.post(`${API_URL}/posts/${postId}/comment`, { text, author });
+    const res = await apiClient.post(`/posts/${postId}/comment`, { text, author });
     return res.data;
 };
 
 export const deletePost = async (postId) => {
-    const res = await axios.delete(`${API_URL}/posts/${postId}`);
+    const res = await apiClient.delete(`/posts/${postId}`);
     return res.data;
 };
 
 export const reportPost = async (postId, reporterId, reason) => {
-    const res = await axios.post(`${API_URL}/posts/${postId}/report`, { reporterId, reason });
+    const res = await apiClient.post(`/posts/${postId}/report`, { reporterId, reason });
     return res.data;
 };
 
 export const fetchUserPosts = async (userId) => {
     try {
-        const res = await axios.get(`${API_URL}/posts/user/${userId}`);
+        const res = await apiClient.get(`/posts/user/${userId}`);
         return res.data;
     } catch (error) {
         return [];
@@ -73,7 +71,7 @@ export const fetchLeetCodeStats = async (username) => {
 // --- FORUM (MongoDB) ---
 export const fetchForum = async () => {
     try {
-        const res = await axios.get(`${API_URL}/forum`);
+        const res = await apiClient.get('/forum');
         return res.data;
     } catch (error) {
         console.error("Error fetching forum:", error);
@@ -82,7 +80,7 @@ export const fetchForum = async () => {
 };
 
 export const createForumPost = async (title, content, tags, user) => {
-    const res = await axios.post(`${API_URL}/forum`, {
+    const res = await apiClient.post('/forum', {
         title,
         content,
         tags,
@@ -93,14 +91,14 @@ export const createForumPost = async (title, content, tags, user) => {
 };
 
 export const voteForumThread = async (threadId, userId, type) => {
-    const res = await axios.put(`${API_URL}/forum/${threadId}/vote`, { userId, type });
+    const res = await apiClient.put(`/forum/${threadId}/vote`, { userId, type });
     return res.data;
 };
 
 // --- JOBS & OPPORTUNITIES (MongoDB) ---
 export const fetchJobs = async () => {
     try {
-        const res = await axios.get(`${API_URL}/jobs`);
+        const res = await apiClient.get('/jobs');
         return res.data;
     } catch (error) {
         console.error("Error fetching jobs:", error);
@@ -109,13 +107,13 @@ export const fetchJobs = async () => {
 };
 
 export const applyForJob = async (jobId, applicationData) => {
-    const res = await axios.post(`${API_URL}/jobs/${jobId}/apply`, applicationData);
+    const res = await apiClient.post(`/jobs/${jobId}/apply`, applicationData);
     return res.data;
 };
 
 // --- REELS (MongoDB) ---
 export const fetchReels = async () => {
-    const res = await axios.get(`${API_URL}/reels`);
+    const res = await apiClient.get('/reels');
     if (!Array.isArray(res.data)) {
         throw new Error(res.data.error || "Failed to fetch reels");
     }
@@ -123,17 +121,17 @@ export const fetchReels = async () => {
 };
 
 export const likeReel = async (reelId, userId) => {
-    const res = await axios.put(`${API_URL}/reels/${reelId}/like`, { userId });
+    const res = await apiClient.put(`/reels/${reelId}/like`, { userId });
     return res.data;
 };
 
 export const addReelComment = async (reelId, text, author, authorId) => {
-    const res = await axios.post(`${API_URL}/reels/${reelId}/comment`, { text, author, authorId });
+    const res = await apiClient.post(`/reels/${reelId}/comment`, { text, author, authorId });
     return res.data;
 };
 
 export const uploadReel = async (url, description, user, song = null) => {
-    const res = await axios.post(`${API_URL}/reels`, {
+    const res = await apiClient.post('/reels', {
         url,
         description,
         userId: user.uid,
@@ -146,11 +144,11 @@ export const uploadReel = async (url, description, user, song = null) => {
 
 // --- AUTH (EDU Verification) ---
 export const requestEduVerification = async (uid, collegeEmail) => {
-    const res = await axios.post(`${API_URL}/auth/request-verification`, { uid, collegeEmail });
+    const res = await apiClient.post('/auth/request-verification', { uid, collegeEmail });
     return res.data;
 };
 
 export const verifyOtp = async (uid, otp) => {
-    const res = await axios.post(`${API_URL}/auth/verify-otp`, { uid, otp });
+    const res = await apiClient.post('/auth/verify-otp', { uid, otp });
     return res.data;
 };

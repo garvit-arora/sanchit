@@ -1,10 +1,10 @@
 import axios from 'axios';
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Search Users for Chat
 export const searchUsers = async (searchTerm) => {
     try {
-        const res = await axios.get(`${API_URL}/users/search?q=${searchTerm}`);
+        const res = await apiClient.get(`/users/search?q=${searchTerm}`);
         return res.data;
     } catch (e) {
         return [];
@@ -14,7 +14,7 @@ export const searchUsers = async (searchTerm) => {
 // Fetch all conversations for a user
 export const fetchConversations = async (userId) => {
     try {
-        const res = await axios.get(`${API_URL}/chat/conversations/${userId}`);
+        const res = await apiClient.get(`/chat/conversations/${userId}`);
         return res.data;
     } catch (e) {
         return [];
@@ -30,7 +30,7 @@ export const getChatRoomId = (myUid, otherUid) => {
 
 // Send Message (Mongo)
 export const sendMessage = async (roomId, text, user) => {
-    const res = await axios.post(`${API_URL}/chat`, {
+    const res = await apiClient.post('/chat', {
         roomId,
         text,
         senderId: user.uid,
@@ -42,6 +42,6 @@ export const sendMessage = async (roomId, text, user) => {
 
 // Get Messages (Mongo)
 export const fetchMessages = async (roomId) => {
-    const res = await axios.get(`${API_URL}/chat/${roomId}`);
+    const res = await apiClient.get(`/chat/${roomId}`);
     return res.data;
 };

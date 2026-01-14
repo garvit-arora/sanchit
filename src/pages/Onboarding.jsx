@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ArrowRight, Check, Sparkles, Code, User as UserIcon } from 'lucide-react';
-import axios from 'axios';
+import apiClient from '../services/apiClient';
 
 export default function Onboarding() {
     const { currentUser, userProfile, refreshProfile } = useAuth();
@@ -25,7 +25,6 @@ export default function Onboarding() {
         bio: 'Just joined the Grid.'
     });
 
-    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
     const updateData = (newData) => setData(prev => ({ ...prev, ...newData }));
 
     const handleFinish = async () => {
@@ -33,10 +32,14 @@ export default function Onboarding() {
             alert("Please pick a unique handle (@)");
             return;
         }
+        if (!currentUser) {
+            alert("Please login first");
+            return;
+        }
         setIsLoading(true);
         try {
-            // Save info and INSTANTLY VERIFY
-            await axios.put(`${API_BASE}/auth/profile`, {
+            // Save info and INSTANTLY VERIFY (apiClient automatically adds auth token)
+            await apiClient.put('/auth/profile', {
                 uid: currentUser.uid,
                 displayName: data.displayName,
                 username: data.username,
@@ -48,12 +51,14 @@ export default function Onboarding() {
             });
 
             await refreshProfile();
-            window.location.href = '/feed';
+            navigate('/feed');
         } catch (e) {
-            console.error(e);
-            alert("Error finishing setup. Try a different username?");
+            console.error("Onboarding error:", e);
+            const errorMessage = e.response?.data?.error || e.message || "Error finishing setup. Try a different username?";
+            alert(errorMessage);
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     };
 
     return (

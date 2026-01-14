@@ -3,6 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { Home, PlaySquare, Briefcase, MessageSquare, Menu, User, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import ConnectionStatus from './ConnectionStatus';
 
 const SidebarLink = ({ to, icon: Icon, label }) => {
     return (
@@ -69,6 +70,9 @@ export default function Layout({ children }) {
                     {children}
                 </div>
             </main>
+            
+            {/* Connection Status Indicator */}
+            <ConnectionStatus />
         </div>
     );
 }

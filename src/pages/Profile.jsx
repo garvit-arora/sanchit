@@ -28,7 +28,7 @@ const Badge = ({ label, emoji }) => (
 );
 
 export default function Profile() {
-    const { currentUser, userProfile, logout } = useAuth(); // using mongo profile
+    const { currentUser, userProfile, logout, refreshProfile } = useAuth(); // using mongo profile
     const [isEditOpen, setIsEditOpen] = useState(false);
 
     // Fetch My Posts
@@ -50,14 +50,26 @@ export default function Profile() {
 
     const handleUpdateProfile = async (newData) => {
         try {
-            await axios.put('http://localhost:8080/api/auth/profile', {
+            if (!currentUser) {
+                alert("Please login first");
+                return;
+            }
+            const token = await currentUser.getIdToken();
+            const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+            await axios.put(`${API_BASE}/auth/profile`, {
                 uid: currentUser.uid,
                 ...newData
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
             });
-            // Ideally re-fetch profile here or update context
+            // Refresh profile in context
+            if (refreshProfile) {
+                await refreshProfile();
+            }
             window.location.reload(); // Quick refresh to show changes
         } catch (e) {
-            alert("Update Failed");
+            console.error("Profile update error:", e);
+            alert(e.response?.data?.error || "Update Failed");
         }
     };
 

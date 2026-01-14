@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Users, Shield, Mail, CheckCircle, XCircle, Search, RefreshCw, Trash2, Edit } from 'lucide-react';
-import axios from 'axios';
+import apiClient from '../services/apiClient';
 import { useAuth } from '../context/AuthContext';
 
 export default function AdminPanel() {
@@ -11,12 +11,10 @@ export default function AdminPanel() {
     const [searchTerm, setSearchTerm] = useState('');
     const [stats, setStats] = useState({ total: 0, verified: 0, alumni: 0 });
 
-    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
     const fetchAllUsers = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${API_BASE}/users/admin/all`);
+            const res = await apiClient.get('/users/admin/all');
             setUsers(res.data);
             
             // Calculate Stats

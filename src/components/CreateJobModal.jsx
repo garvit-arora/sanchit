@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Send, Briefcase, MapPin, DollarSign } from 'lucide-react';
-import axios from 'axios';
+import apiClient from '../services/apiClient';
 
 export default function CreateJobModal({ isOpen, onClose, onCreated }) {
     const [formData, setFormData] = useState({
@@ -18,15 +18,15 @@ export default function CreateJobModal({ isOpen, onClose, onCreated }) {
         e.preventDefault();
         setIsLoading(true);
         try {
-            const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-            await axios.post(`${API_URL}/jobs`, {
+            await apiClient.post('/jobs', {
                 ...formData,
                 skills: formData.skills.split(',').map(s => s.trim())
             });
             onCreated();
             onClose();
         } catch (err) {
-            alert("Failed to create job");
+            console.error("Job creation error:", err);
+            alert(err.response?.data?.error || "Failed to create job");
         } finally {
             setIsLoading(false);
         }
