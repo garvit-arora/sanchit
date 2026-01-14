@@ -4,7 +4,28 @@ import { X, Send, Briefcase, MapPin, DollarSign } from 'lucide-react';
 import apiClient from '../services/apiClient';
 import { useAuth } from '../context/AuthContext';
 
-export default function CreateJobModal({ isOpen, onClose, onCreated, title = "Post a Gig", apiPath = "/jobs" }) {
+export default function CreateJobModal({
+    isOpen,
+    onClose,
+    onCreated,
+    title = "Post a Gig",
+    apiPath = "/jobs",
+    labels = {
+        title: "Job Title",
+        company: "Company",
+        location: "Location",
+        stipend: "Stipend",
+        skills: "Skills (comma separated)",
+        description: "Description"
+    },
+    placeholders = {
+        title: "Software Intern",
+        company: "Google",
+        location: "Remote",
+        stipend: "50k/mo",
+        description: "Describe the role..."
+    }
+}) {
     const [formData, setFormData] = useState({
         title: '',
         company: '',
@@ -23,7 +44,6 @@ export default function CreateJobModal({ isOpen, onClose, onCreated, title = "Po
         try {
             await apiClient.post(apiPath, {
                 ...formData,
-                stipend: formData.stipend,
                 postedBy: currentUser.uid,
                 ownerName: currentUser.displayName,
                 ownerPhoto: currentUser.photoURL,
@@ -60,51 +80,51 @@ export default function CreateJobModal({ isOpen, onClose, onCreated, title = "Po
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Job Title</label>
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">{labels.title}</label>
                             <input
                                 required
                                 value={formData.title}
                                 onChange={e => setFormData({ ...formData, title: e.target.value })}
                                 className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-primary mt-1"
-                                placeholder="Software Intern"
+                                placeholder={placeholders.title}
                             />
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Company</label>
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">{labels.company}</label>
                             <input
                                 required
                                 value={formData.company}
                                 onChange={e => setFormData({ ...formData, company: e.target.value })}
                                 className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-primary mt-1"
-                                placeholder="Google"
+                                placeholder={placeholders.company}
                             />
                         </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Location</label>
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">{labels.location}</label>
                             <input
                                 required
                                 value={formData.location}
                                 onChange={e => setFormData({ ...formData, location: e.target.value })}
                                 className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-primary mt-1"
-                                placeholder="Remote"
+                                placeholder={placeholders.location}
                             />
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Stipend</label>
+                            <label className="text-xs font-bold text-gray-500 uppercase ml-1">{labels.stipend}</label>
                             <input
                                 value={formData.stipend}
                                 onChange={e => setFormData({ ...formData, stipend: e.target.value })}
                                 className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-primary mt-1"
-                                placeholder="50k/mo"
+                                placeholder={placeholders.stipend}
                             />
                         </div>
                     </div>
 
                     <div>
-                        <label className="text-xs font-bold text-gray-500 uppercase ml-1">Skills (comma separated)</label>
+                        <label className="text-xs font-bold text-gray-500 uppercase ml-1">{labels.skills}</label>
                         <input
                             value={formData.skills}
                             onChange={e => setFormData({ ...formData, skills: e.target.value })}
@@ -114,13 +134,13 @@ export default function CreateJobModal({ isOpen, onClose, onCreated, title = "Po
                     </div>
 
                     <div>
-                        <label className="text-xs font-bold text-gray-500 uppercase ml-1">Description</label>
+                        <label className="text-xs font-bold text-gray-500 uppercase ml-1">{labels.description}</label>
                         <textarea
                             required
                             value={formData.description}
                             onChange={e => setFormData({ ...formData, description: e.target.value })}
                             className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-primary mt-1 h-24 resize-none"
-                            placeholder="Describe the role..."
+                            placeholder={placeholders.description}
                         />
                     </div>
 
@@ -128,7 +148,7 @@ export default function CreateJobModal({ isOpen, onClose, onCreated, title = "Po
                         disabled={isLoading}
                         className="w-full bg-primary text-black font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-yellow-400 transition-colors disabled:opacity-50 mt-4"
                     >
-                        {isLoading ? 'Posting...' : <><Send size={18} /> Publish Job</>}
+                        {isLoading ? 'Posting...' : <><Send size={18} /> Publish {title.includes('Hackathon') ? 'Hackathon' : 'Job'}</>}
                     </button>
                 </form>
             </motion.div>

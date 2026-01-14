@@ -17,7 +17,6 @@ import Onboarding from './pages/Onboarding';
 import VerifyEDU from './pages/VerifyEDU';
 import AdminPanel from './pages/AdminPanel';
 import AdminLogin from './pages/AdminLogin';
-import AdminLogin from './pages/AdminLogin';
 import NotFound from './pages/NotFound';
 import Hackathons from './pages/Hackathons';
 import PremiumModal from './components/PremiumModal';
@@ -58,6 +57,7 @@ export default function App() {
                     <Route path="/opportunities" element={<Opportunities />} />
                     <Route path="/hackathons" element={<Hackathons />} />
                     <Route path="/profile" element={<Profile />} />
+                    <Route path="/user/:uid" element={<Profile />} />
                     <Route path="/admin" element={<AdminGuard><AdminPanel /></AdminGuard>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>

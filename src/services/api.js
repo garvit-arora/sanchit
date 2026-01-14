@@ -52,9 +52,13 @@ export const fetchUserPosts = async (userId) => {
 
 // --- USER & LEETCODE ---
 export const fetchUserProfile = async (uid) => {
-    // In a real app, you might fetch this from Mongo if you have extra data there
-    // For now we rely on firebase auth context mostly, but if we stored leetcode ID in mongo:
-    // return axios.get(...)
+    try {
+        const res = await apiClient.get(`/users/${uid}`);
+        return res.data;
+    } catch (error) {
+        console.error("Error fetching user profile:", error);
+        return null;
+    }
 };
 
 export const fetchLeetCodeStats = async (username) => {
@@ -129,6 +133,11 @@ export const deleteForumComment = async (threadId, commentId) => {
     return res.data;
 };
 
+export const reportForumThread = async (threadId, reporterId, reason) => {
+    const res = await apiClient.post(`/forum/${threadId}/report`, { reporterId, reason });
+    return res.data;
+};
+
 // --- JOBS & OPPORTUNITIES (MongoDB) ---
 export const fetchJobs = async () => {
     try {
@@ -140,8 +149,23 @@ export const fetchJobs = async () => {
     }
 };
 
+export const fetchGigs = async () => {
+    try {
+        const res = await apiClient.get('/gigs');
+        return res.data;
+    } catch (error) {
+        console.error("Error fetching gigs:", error);
+        return [];
+    }
+};
+
 export const applyForJob = async (jobId, applicationData) => {
     const res = await apiClient.post(`/jobs/${jobId}/apply`, applicationData);
+    return res.data;
+};
+
+export const deleteJob = async (jobId) => {
+    const res = await apiClient.delete(`/jobs/${jobId}`);
     return res.data;
 };
 

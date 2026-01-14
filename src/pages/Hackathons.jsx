@@ -125,7 +125,22 @@ export default function Hackathons() {
                         onClose={() => setIsCreateModalOpen(false)}
                         onCreated={() => queryClient.invalidateQueries(['hackathons'])}
                         title="Host a Hackathon"
-                        apiPath="/hackathons" // I need to ensure CreateJobModal supports this
+                        apiPath="/hackathons"
+                        labels={{
+                            title: "Hackathon Name",
+                            company: "Organization",
+                            location: "Venue/Status",
+                            stipend: "Prize Pool",
+                            skills: "Themes/Tags (comma separated)",
+                            description: "Platform Link (Devfolio, Unstop, etc.)"
+                        }}
+                        placeholders={{
+                            title: "TechSprint 2026",
+                            company: "Google Developers Group",
+                            location: "Remote / BPIT Campus",
+                            stipend: "₹1,00,000 + Swags",
+                            description: "Paste link to Devfolio, Unstop, or Devpost..."
+                        }}
                     />
                 )}
             </AnimatePresence>

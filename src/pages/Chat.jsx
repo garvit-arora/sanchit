@@ -3,17 +3,26 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { searchUsers, getChatRoomId, sendMessage, fetchMessages, fetchConversations } from '../services/chatService';
 import { Search, Send, User as UserIcon, MoreVertical, Phone, Video, ArrowLeft, MessageSquare, Sparkles } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
 import UserAvatar from '../components/UserAvatar';
+import { io } from 'socket.io-client';
+import { useLocation, Link } from 'react-router-dom';
+
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 export default function Chat() {
     const { currentUser } = useAuth();
+    const location = useLocation();
     const [searchTerm, setSearchTerm] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [conversations, setConversations] = useState([]);
+    const socketRef = useRef();
 
     // Persist Active Chat User
     const [activeChatUser, setActiveChatUser] = useState(() => {
+        // First priority: user from navigation state (clicking "Message" on profile)
+        if (location.state?.activeChatUser) {
+            return location.state.activeChatUser;
+        }
         const saved = localStorage.getItem('last_active_chat_user');
         return saved ? JSON.parse(saved) : null;
     });
@@ -23,6 +32,44 @@ export default function Chat() {
     const [isVanishMode, setIsVanishMode] = useState(false);
     const messagesEndRef = useRef(null);
 
+    // Initialize Socket
+    useEffect(() => {
+        socketRef.current = io(SOCKET_URL);
+
+        socketRef.current.on('connect', () => {
+            console.log('Connected to socket server');
+        });
+
+        socketRef.current.on('receive_message', (message) => {
+            // Only add if it belongs to current active room
+            const currentRoomId = getChatRoomId(currentUser.uid, activeChatUser?.uid);
+            if (message.roomId === currentRoomId && message.senderId !== currentUser.uid) {
+                setMessages(prev => [...prev, message]);
+            }
+            // Update conversation list locally
+            loadConversations();
+        });
+
+        return () => {
+            socketRef.current.disconnect();
+        };
+    }, [activeChatUser?.uid]);
+
+    // Join room when active user changes
+    useEffect(() => {
+        if (activeChatUser && socketRef.current) {
+            const roomId = getChatRoomId(currentUser.uid, activeChatUser.uid);
+            socketRef.current.emit('join_room', roomId);
+
+            // Fetch history
+            const loadHistory = async () => {
+                const msgs = await fetchMessages(roomId);
+                setMessages(msgs);
+            };
+            loadHistory();
+        }
+    }, [activeChatUser?.uid, currentUser.uid]);
+
     // Persist choice
     useEffect(() => {
         if (activeChatUser) {
@@ -30,21 +77,37 @@ export default function Chat() {
         }
     }, [activeChatUser]);
 
-    // Scroll to bottom on new messages
+    // Scroll to bottom
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    // Initial load of conversations
-    useEffect(() => {
-        const loadConversations = async () => {
-            const data = await fetchConversations(currentUser.uid);
+    const loadConversations = async () => {
+        try {
+            let data = await fetchConversations(currentUser.uid);
+
+            // If we have an active chat user, ensure they are in the list
+            if (activeChatUser && activeChatUser.uid !== 'gemini_group') {
+                const exists = data.some(c => c.user.uid === activeChatUser.uid);
+                if (!exists) {
+                    data = [{
+                        user: activeChatUser,
+                        lastMessage: 'New conversation',
+                        lastMessageTime: new Date()
+                    }, ...data];
+                }
+            }
+
             setConversations(data);
-        };
+        } catch (e) {
+            console.error("Failed to load conversations", e);
+        }
+    };
+
+    // Initial load
+    useEffect(() => {
         loadConversations();
-        const interval = setInterval(loadConversations, 5000); // Poll conversations list every 5s
-        return () => clearInterval(interval);
-    }, [currentUser.uid]);
+    }, [currentUser.uid, activeChatUser?.uid]);
 
     // Handle Search
     useEffect(() => {
@@ -62,7 +125,7 @@ export default function Chat() {
     const isOnline = (lastSeen) => {
         if (!lastSeen) return false;
         const diff = Date.now() - new Date(lastSeen).getTime();
-        return diff < 5 * 60 * 1000; // 5 Minutes
+        return diff < 5 * 60 * 1000;
     };
 
     const StatusDot = ({ online }) => (
@@ -71,39 +134,6 @@ export default function Chat() {
         </div>
     );
 
-    // Poll Messages AND Active User Status
-    useEffect(() => {
-        let interval;
-        const loadChatData = async () => {
-            if (!activeChatUser) return;
-
-            // 1. Fetch Messages
-            try {
-                const roomId = getChatRoomId(currentUser.uid, activeChatUser.uid);
-                const msgs = await fetchMessages(roomId);
-                setMessages(msgs);
-            } catch (e) {
-                console.error("Poll failed", e);
-            }
-
-            // 2. Fetch User Latest Status (to check online)
-            if (activeChatUser.uid && activeChatUser.uid !== 'gemini_group') {
-                try {
-                    const apiClient = (await import('../services/apiClient')).default;
-                    const res = await apiClient.get(`/users/${activeChatUser.uid}`);
-                    setActiveChatUser(prev => ({ ...prev, lastSeen: res.data.lastSeen }));
-                } catch (e) { }
-            }
-        };
-
-        if (activeChatUser) {
-            loadChatData();
-            interval = setInterval(loadChatData, 2000);
-        }
-
-        return () => clearInterval(interval);
-    }, [activeChatUser?.uid, currentUser.uid]);
-
     const handleSend = async () => {
         if (!inputText.trim() || !activeChatUser) return;
         const roomId = getChatRoomId(currentUser.uid, activeChatUser.uid);
@@ -111,23 +141,21 @@ export default function Chat() {
         const currentText = inputText;
         setInputText('');
 
-        // Optimistic UI Update
-        const tempMsg = {
-            id: Date.now(),
+        const messageData = {
+            id: Date.now().toString(), // Temp ID for list
+            roomId,
             text: currentText,
             senderId: currentUser.uid,
-            createdAt: new Date().toISOString()
+            senderName: currentUser.displayName,
+            senderPhoto: currentUser.photoURL,
+            createdAt: new Date()
         };
-        setMessages(prev => [...prev, tempMsg]);
 
-        try {
-            await sendMessage(roomId, currentText, currentUser);
-            // Immediate refresh of conversation list
-            const data = await fetchConversations(currentUser.uid);
-            setConversations(data);
-        } catch (e) {
-            console.error("Send failed", e);
-        }
+        // Optimistic UI Update
+        setMessages(prev => [...prev, messageData]);
+
+        // Emit via socket - the server will persist this to Mongo
+        socketRef.current.emit('send_message', messageData);
     };
 
     return (
@@ -235,13 +263,25 @@ export default function Chat() {
                                     <ArrowLeft size={24} />
                                 </button>
                                 <div className="relative">
-                                    <UserAvatar src={activeChatUser.photoURL} name={activeChatUser.displayName} size="md" className="border-2 border-white/10 shadow-lg" />
+                                    {activeChatUser.uid !== 'gemini_group' ? (
+                                        <Link to={`/user/${activeChatUser.uid}`}>
+                                            <UserAvatar src={activeChatUser.photoURL} name={activeChatUser.displayName} size="md" className="border-2 border-white/10 shadow-lg hover:border-primary transition-colors" />
+                                        </Link>
+                                    ) : (
+                                        <UserAvatar src={activeChatUser.photoURL} name={activeChatUser.displayName} size="md" className="border-2 border-white/10 shadow-lg" />
+                                    )}
                                     {activeChatUser.uid !== 'gemini_group' && (
                                         <StatusDot online={isOnline(activeChatUser.lastSeen)} />
                                     )}
                                 </div>
                                 <div>
-                                    <h3 className="text-white font-black tracking-tight text-lg">{activeChatUser.displayName}</h3>
+                                    {activeChatUser.uid !== 'gemini_group' ? (
+                                        <Link to={`/user/${activeChatUser.uid}`} className="hover:text-primary transition-colors">
+                                            <h3 className="text-white font-black tracking-tight text-lg">{activeChatUser.displayName}</h3>
+                                        </Link>
+                                    ) : (
+                                        <h3 className="text-white font-black tracking-tight text-lg">{activeChatUser.displayName}</h3>
+                                    )}
                                     {activeChatUser.uid === 'gemini_group' ? (
                                         <p className="text-[10px] text-primary font-bold uppercase tracking-widest animate-pulse">Council for Digital Sentience</p>
                                     ) : (

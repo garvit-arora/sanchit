@@ -4,7 +4,7 @@ import { Heart, MessageCircle, Volume2, VolumeX, Play, Plus, Upload, Loader2, X,
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchReels, uploadReel, likeReel, addReelComment } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import UploadReelModal from '../components/UploadReelModal';
 import UserAvatar from '../components/UserAvatar';
 
@@ -153,17 +153,19 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
                             ref={videoRef}
                             key={reel.url}
                             src={reel.url}
-                            className="w-full h-full object-cover cursor-pointer z-0"
+                            className="w-full h-full object-cover cursor-pointer relative z-0"
                             loop
+                            autoPlay
+                            muted={globalMuted}
                             playsInline
                             webkit-playsinline="true"
-                            muted={globalMuted}
                             preload="auto"
                             onClick={togglePlay}
                             onTimeUpdate={handleTimeUpdate}
                             onLoadedData={() => setIsReady(true)}
                             onWaiting={() => setIsReady(false)}
                             onPlaying={() => setIsReady(true)}
+                            style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
                         />
                     ) : (
                         <div className="w-full h-full bg-black flex items-center justify-center">
@@ -201,9 +203,11 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
                     </div>
 
                     <div className="absolute bottom-0 left-0 right-0 p-6 z-30 bg-gradient-to-t from-black/80 to-transparent">
-                        <div className="flex items-center gap-3 mb-2">
-                            <UserAvatar src={reel.userPhoto} name={reel.userDisplayName} size="sm" className="border-2 border-white" />
-                            <h4 className="text-white font-bold text-base">@{reel.userDisplayName}</h4>
+                        <div className="flex items-center gap-3 mb-2 z-50 relative pointer-events-auto">
+                            <Link to={`/user/${reel.userId}`} onClick={(e) => e.stopPropagation()} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                                <UserAvatar src={reel.userPhoto} name={reel.userDisplayName} size="sm" className="border-2 border-white" />
+                                <h4 className="text-white font-bold text-base">@{reel.userDisplayName}</h4>
+                            </Link>
                         </div>
                         {reel.description && <p className="text-white text-sm line-clamp-2">{reel.description}</p>}
                         {reel.song && (
@@ -453,19 +457,19 @@ export default function Reels() {
 
     return (
         <div className="fixed inset-0 bg-black">
-            <button onClick={() => setGlobalMuted(!globalMuted)} className="fixed top-4 right-4 z-50 w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg">
-                {globalMuted ? <VolumeX size={24} className="text-white" /> : <Volume2 size={24} className="text-white" />}
+            <button onClick={() => setGlobalMuted(!globalMuted)} className="fixed top-6 right-6 z-[100] w-14 h-14 bg-black/40 backdrop-blur-xl rounded-full flex items-center justify-center shadow-2xl border border-white/20 active:scale-90 transition-all">
+                {globalMuted ? <VolumeX size={28} className="text-white" /> : <Volume2 size={28} className="text-white" />}
             </button>
 
-            <button onClick={() => navigate(-1)} className="fixed top-4 left-4 z-50 w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg border border-white/10 hover:bg-white/30 transition-all">
-                <ArrowLeft size={24} className="text-white" />
+            <button onClick={() => navigate(-1)} className="fixed top-6 left-6 z-[100] w-14 h-14 bg-black/40 backdrop-blur-xl rounded-full flex items-center justify-center shadow-2xl border border-white/20 hover:bg-black/60 active:scale-90 transition-all">
+                <ArrowLeft size={28} className="text-white" />
             </button>
 
-            <button onClick={() => setIsUploadOpen(true)} className="fixed top-20 left-4 z-50 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-transform">
-                <Plus size={24} className="text-black" />
+            <button onClick={() => setIsUploadOpen(true)} className="fixed top-24 left-6 z-[100] w-14 h-14 bg-primary text-black rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-90 transition-all">
+                <Plus size={28} />
             </button>
 
-            <div onScroll={handleScroll} className="h-full w-full overflow-y-scroll snap-y snap-mandatory" style={{ scrollbarWidth: 'none' }}>
+            <div onScroll={handleScroll} className="h-full w-full overflow-y-scroll snap-y snap-mandatory scroll-smooth" style={{ scrollbarWidth: 'none' }}>
                 {Array.isArray(reels) && reels.length > 0 ? (
                     reels.map((reel, index) => (
                         <VideoPlayer

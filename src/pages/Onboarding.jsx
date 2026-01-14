@@ -48,6 +48,7 @@ export default function Onboarding() {
                 leetcodeUsername: data.leetcodeUsername,
                 campus: data.campus,
                 bio: data.bio,
+                email: currentUser.email, // CRITICAL: Send email to ensure DB sync works
                 isVerified: false,
                 verified: false
             });

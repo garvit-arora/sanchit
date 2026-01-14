@@ -36,28 +36,33 @@ export default function PremiumModal() {
                     </div>
 
                     <div className="p-8">
-                        <div className="space-y-4 mb-8">
-                            <div className="flex items-center gap-3 text-gray-300">
-                                <div className="bg-green-500/20 p-1 rounded-full text-green-500"><Check size={16} /></div>
-                                <span className="font-medium">Exclusive "Pro Coder" Badge</span>
+                        <div className="grid grid-cols-2 gap-4 mb-8">
+                            {/* Free Plan */}
+                            <div className="bg-white/5 p-4 rounded-xl border border-white/5 opacity-50">
+                                <h3 className="text-lg font-black text-white mb-2">Basic</h3>
+                                <p className="text-2xl font-bold text-gray-400 mb-4">₹0</p>
+                                <ul className="space-y-2 text-xs text-gray-400">
+                                    <li className="flex gap-2"><Check size={12} /> Public Forum</li>
+                                    <li className="flex gap-2"><Check size={12} /> Apply to Gigs</li>
+                                    <li className="flex gap-2"><Check size={12} /> View Reels</li>
+                                </ul>
                             </div>
-                            <div className="flex items-center gap-3 text-gray-300">
-                                <div className="bg-green-500/20 p-1 rounded-full text-green-500"><Check size={16} /></div>
-                                <span className="font-medium">Apply to Premium Gigs First</span>
-                            </div>
-                            <div className="flex items-center gap-3 text-gray-300">
-                                <div className="bg-green-500/20 p-1 rounded-full text-green-500"><Check size={16} /></div>
-                                <span className="font-medium">Custom User Profile Themes</span>
-                            </div>
-                            <div className="flex items-center gap-3 text-gray-300">
-                                <div className="bg-green-500/20 p-1 rounded-full text-green-500"><Check size={16} /></div>
-                                <span className="font-medium">Direct DM Access to Recruiters</span>
+
+                            {/* Premium Plan */}
+                            <div className="bg-gradient-to-br from-yellow-400/20 to-orange-500/20 p-4 rounded-xl border border-yellow-500/50 relative overflow-hidden">
+                                <div className="absolute top-0 right-0 bg-yellow-500 text-black text-[10px] font-black px-2 py-0.5 rounded-bl-lg">POPULAR</div>
+                                <h3 className="text-lg font-black text-white mb-2">Pro</h3>
+                                <p className="text-2xl font-bold text-yellow-400 mb-4">₹90</p>
+                                <ul className="space-y-2 text-xs text-gray-200">
+                                    <li className="flex gap-2"><Check size={12} className="text-yellow-400" /> <b>Pro Badge</b></li>
+                                    <li className="flex gap-2"><Check size={12} className="text-yellow-400" /> <b>Priority Applications</b></li>
+                                    <li className="flex gap-2"><Check size={12} className="text-yellow-400" /> Custom Themes</li>
+                                    <li className="flex gap-2"><Check size={12} className="text-yellow-400" /> Direct DMs</li>
+                                </ul>
                             </div>
                         </div>
 
-                        <div className="text-center mb-8">
-                            <span className="text-4xl font-black text-white">₹90</span>
-                            <span className="text-gray-500 font-bold"> / month</span>
+                        <div className="text-center mb-6">
                             <p className="text-xs text-secondary mt-2 font-bold animate-pulse">LIMITED TIME LAUNCH OFFER</p>
                         </div>
 

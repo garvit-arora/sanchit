@@ -49,11 +49,11 @@ export default function UploadReelModal({ isOpen, onClose, onUpload }) {
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
-            if (file.size > 50 * 1024 * 1024) {
-                setError("File too large. Maximum size is 50MB.");
+            if (file.size > 100 * 1024 * 1024) {
+                setError("File too large. Maximum size is 100MB.");
                 return;
             }
-            
+
             if (!file.type.startsWith('video/')) {
                 setError("Please select a video file.");
                 return;
@@ -61,7 +61,7 @@ export default function UploadReelModal({ isOpen, onClose, onUpload }) {
 
             setError('');
             setVideoFile(file);
-            
+
             const reader = new FileReader();
             reader.onloadend = () => {
                 setVideoPreview(reader.result);
@@ -86,7 +86,7 @@ export default function UploadReelModal({ isOpen, onClose, onUpload }) {
 
     const handleFinalSubmit = async (song) => {
         if (!videoPreview) return;
-        
+
         setIsLoading(true);
         setError('');
         try {
@@ -125,36 +125,36 @@ export default function UploadReelModal({ isOpen, onClose, onUpload }) {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
-            <motion.div 
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md">
+            <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
+                className="bg-surface w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col border border-white/10"
             >
                 {/* Header */}
-                <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-                    <h2 className="text-2xl font-black flex items-center gap-3">
-                        <Film className="text-black" size={28} />
+                <div className="p-6 border-b border-white/10 flex justify-between items-center bg-black/20">
+                    <h2 className="text-2xl font-black flex items-center gap-3 text-white italic tracking-tighter">
+                        <Film className="text-primary" size={28} />
                         {step === 1 && "Upload Video"}
                         {step === 2 && "Add Caption"}
                         {step === 3 && "Choose Song"}
                     </h2>
-                    <button onClick={handleClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                    <button onClick={handleClose} className="p-2 hover:bg-white/5 rounded-full transition-colors text-gray-400 hover:text-white">
                         <X size={24} />
                     </button>
                 </div>
 
                 {/* Progress Steps */}
-                <div className="px-6 py-4 bg-gray-50 flex items-center justify-center gap-2">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= 1 ? 'bg-black text-white' : 'bg-gray-300 text-gray-600'}`}>
+                <div className="px-6 py-4 bg-black/40 flex items-center justify-center gap-2 border-b border-white/5">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= 1 ? 'bg-primary text-black' : 'bg-white/5 text-gray-600'}`}>
                         {step > 1 ? <Check size={16} /> : '1'}
                     </div>
-                    <div className={`w-12 h-0.5 ${step >= 2 ? 'bg-black' : 'bg-gray-300'}`} />
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= 2 ? 'bg-black text-white' : 'bg-gray-300 text-gray-600'}`}>
+                    <div className={`w-12 h-0.5 ${step >= 2 ? 'bg-primary' : 'bg-white/10'}`} />
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= 2 ? 'bg-primary text-black' : 'bg-white/5 text-gray-600'}`}>
                         {step > 2 ? <Check size={16} /> : '2'}
                     </div>
-                    <div className={`w-12 h-0.5 ${step >= 3 ? 'bg-black' : 'bg-gray-300'}`} />
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= 3 ? 'bg-black text-white' : 'bg-gray-300 text-gray-600'}`}>
+                    <div className={`w-12 h-0.5 ${step >= 3 ? 'bg-primary' : 'bg-white/10'}`} />
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${step >= 3 ? 'bg-primary text-black' : 'bg-white/5 text-gray-600'}`}>
                         3
                     </div>
                 </div>
@@ -164,17 +164,17 @@ export default function UploadReelModal({ isOpen, onClose, onUpload }) {
                     {/* Step 1: Upload Video */}
                     {step === 1 && (
                         <div>
-                            <div className="border-2 border-dashed border-gray-300 rounded-2xl p-12 text-center hover:border-black transition-colors cursor-pointer relative">
-                                <input 
-                                    type="file" 
+                            <div className="border-2 border-dashed border-white/10 rounded-2xl p-12 text-center hover:border-primary/50 transition-colors cursor-pointer relative bg-black/20 group">
+                                <input
+                                    type="file"
                                     accept="video/mp4,video/webm,video/mov,video/avi"
                                     onChange={handleFileChange}
-                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
                                 />
-                                <Upload className="mx-auto text-gray-400 mb-4" size={48} />
-                                <p className="text-lg font-bold mb-2">Click to upload video</p>
-                                <p className="text-gray-500 text-sm">MP4, WEBM, MOV (max 50MB)</p>
-                                <p className="text-gray-400 text-xs mt-2">Vertical videos (9:16) work best!</p>
+                                <Upload className="mx-auto text-gray-600 mb-4 group-hover:text-primary transition-colors" size={48} />
+                                <p className="text-lg font-bold mb-2 text-white">Click to upload video</p>
+                                <p className="text-gray-500 text-sm">MP4, WEBM, MOV (max 100MB)</p>
+                                <p className="text-gray-600 text-[10px] font-bold uppercase tracking-widest mt-4">Vertical videos (9:16) work best!</p>
                             </div>
                             {error && (
                                 <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -186,75 +186,82 @@ export default function UploadReelModal({ isOpen, onClose, onUpload }) {
 
                     {/* Step 2: Add Caption */}
                     {step === 2 && (
-                        <div className="space-y-4">
+                        <div className="space-y-6">
                             {videoPreview && (
-                                <div className="relative w-full h-64 bg-black rounded-2xl overflow-hidden">
+                                <div className="relative w-full h-64 bg-black rounded-2xl overflow-hidden border border-white/10 shadow-inner">
                                     <video src={videoPreview} className="w-full h-full object-cover" />
-                                    <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                                    <div className="absolute top-4 right-4 bg-primary text-black text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg">
                                         <Check size={12} className="inline mr-1" />
-                                        Video uploaded
+                                        Locked In
                                     </div>
                                 </div>
                             )}
                             <div>
-                                <label className="text-sm font-bold mb-2 block">Caption</label>
-                                <textarea 
+                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2 block">Caption</label>
+                                <textarea
                                     value={description}
                                     onChange={(e) => setDescription(e.target.value)}
-                                    className="w-full border-2 border-gray-300 rounded-2xl p-4 outline-none focus:border-black transition-all min-h-[120px] resize-none"
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-6 text-white outline-none focus:border-primary transition-all min-h-[140px] resize-none text-lg font-medium placeholder:text-gray-700"
                                     placeholder="Write something cool..."
                                     autoFocus
                                 />
                             </div>
-                            <button 
+                            <button
                                 onClick={handleCaptionNext}
-                                className="w-full bg-black text-white font-bold py-4 rounded-2xl hover:bg-gray-800 transition-all flex items-center justify-center gap-2"
+                                className="w-full bg-primary text-black font-black py-4 rounded-2xl hover:bg-yellow-400 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20 active:scale-95"
                             >
-                                Next <ChevronRight size={20} />
+                                Next Step <ChevronRight size={20} />
                             </button>
                         </div>
                     )}
 
                     {/* Step 3: Choose Song */}
                     {step === 3 && (
-                        <div className="space-y-4">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                                <input 
+                        <div className="space-y-6">
+                            <div className="relative group">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-primary transition-colors" size={20} />
+                                <input
                                     type="text"
                                     value={songSearch}
                                     onChange={(e) => setSongSearch(e.target.value)}
                                     placeholder="Search songs..."
-                                    className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-2xl outline-none focus:border-black transition-all"
+                                    className="w-full bg-white/5 pl-12 pr-4 py-4 border border-white/10 rounded-2xl outline-none focus:border-primary transition-all text-white font-medium"
                                 />
                             </div>
 
-                            <div className="max-h-[300px] overflow-y-auto space-y-2">
+                            <div className="max-h-[350px] overflow-y-auto space-y-2 pr-2 custom-scrollbar no-scrollbar">
                                 {filteredSongs.map(song => (
                                     <button
                                         key={song.id}
                                         onClick={() => handleSelectSong(song)}
                                         disabled={isLoading}
-                                        className="w-full p-3 border border-gray-200 rounded-xl hover:border-black hover:bg-gray-50 transition-all text-left flex items-center gap-3 disabled:opacity-50"
+                                        className="w-full p-4 bg-white/5 border border-transparent rounded-2xl hover:border-primary/50 hover:bg-white/10 transition-all text-left flex items-center gap-4 disabled:opacity-50 group"
                                     >
-                                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                                            <Music size={20} className="text-white" />
+                                        <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                                            <Music size={24} className="text-primary" />
                                         </div>
                                         <div className="flex-1">
-                                            <p className="font-bold text-sm">{song.title}</p>
-                                            <p className="text-xs text-gray-500">{song.artist} • {song.duration}</p>
+                                            <p className="font-black text-white text-base leading-none mb-1">{song.title}</p>
+                                            <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">{song.artist} • {song.duration}</p>
                                         </div>
-                                        <ChevronRight size={20} className="text-gray-400" />
+                                        <ChevronRight size={20} className="text-gray-600 group-hover:text-primary transition-colors" />
                                     </button>
                                 ))}
                             </div>
 
-                            <button 
+                            <button
                                 onClick={handleSkipSong}
                                 disabled={isLoading}
-                                className="w-full border-2 border-gray-300 text-black font-bold py-4 rounded-2xl hover:bg-gray-100 transition-all disabled:opacity-50"
+                                className="w-full bg-white/5 border border-white/10 text-white font-black py-5 rounded-2xl hover:bg-white/10 transition-all disabled:opacity-50 active:scale-95 flex items-center justify-center gap-3"
                             >
-                                {isLoading ? 'Uploading...' : 'Skip (No Song)'}
+                                {isLoading ? (
+                                    <>
+                                        <Loader2 className="animate-spin text-primary" size={20} />
+                                        <span>Broadcasting...</span>
+                                    </>
+                                ) : (
+                                    <span>Skip & Upload (Silent Mode)</span>
+                                )}
                             </button>
                         </div>
                     )}

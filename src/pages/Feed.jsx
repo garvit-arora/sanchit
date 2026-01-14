@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Flame, Meh, MoreHorizontal, BadgeCheck, Loader2, MessageCircle, Send, Music2, Trash2, ShieldAlert, PlayCircle, ArrowUp } from 'lucide-react';
+import { Flame, Meh, MoreHorizontal, BadgeCheck, Loader2, MessageCircle, Send, Music2, Trash2, ShieldAlert, PlayCircle, ArrowUp, MessageSquare } from 'lucide-react';
 import { fetchFeed, likePost, addComment, deletePost, reportPost } from '../services/api';
 import CreatePostModal from '../components/CreatePostModal';
 import { Plus } from 'lucide-react';
@@ -11,8 +12,23 @@ import UserAvatar from '../components/UserAvatar';
 const PostCard = ({ post }) => {
     const { currentUser } = useAuth();
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
     const [showComments, setShowComments] = useState(false);
     const [commentText, setCommentText] = useState('');
+
+    const handleMessage = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        navigate('/chat', {
+            state: {
+                activeChatUser: {
+                    uid: post.authorId,
+                    displayName: post.author,
+                    photoURL: post.authorPhoto
+                }
+            }
+        });
+    };
 
     const likeMutation = useMutation({
         mutationFn: () => likePost(post._id || post.id, currentUser.uid),
@@ -38,21 +54,32 @@ const PostCard = ({ post }) => {
             {/* Header */}
             <div className="p-4 md:p-6 flex justify-between items-center bg-white/[0.02]">
                 <div className="flex items-center gap-3 md:gap-4">
-                    <UserAvatar
-                        src={post.authorPhoto}
-                        name={post.author}
-                        size="md"
-                        className="rounded-2xl border border-white/10 ring-2 ring-white/5"
-                    />
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h3 className="font-black text-white md:text-xl tracking-tight leading-none">{post.author}</h3>
-                            {post.isVerified && <BadgeCheck size={16} className="text-blue-500 fill-blue-500/20" />}
+                    <Link to={`/user/${post.authorId}`} className="flex items-center gap-3 md:gap-4 group">
+                        <UserAvatar
+                            src={post.authorPhoto}
+                            name={post.author}
+                            size="md"
+                            className="rounded-2xl border border-white/10 ring-2 ring-white/5"
+                        />
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h3 className="font-black text-white md:text-xl tracking-tight leading-none group-hover:underline">{post.author}</h3>
+                                {post.isVerified && <BadgeCheck size={16} className="text-blue-500 fill-blue-500/20" />}
+                            </div>
+                            <p className="text-gray-500 text-[10px] md:text-xs font-black uppercase tracking-widest mt-1">
+                                {new Date(post.createdAt || Date.now()).toLocaleDateString([], { month: 'short', day: 'numeric' })} • CAMPUS PULSE
+                            </p>
                         </div>
-                        <p className="text-gray-500 text-[10px] md:text-xs font-black uppercase tracking-widest mt-1">
-                            {new Date(post.createdAt || Date.now()).toLocaleDateString([], { month: 'short', day: 'numeric' })} • CAMPUS PULSE
-                        </p>
-                    </div>
+                    </Link>
+
+                    {post.authorId !== currentUser?.uid && (
+                        <button
+                            onClick={handleMessage}
+                            className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20 transition-all ml-2"
+                        >
+                            <MessageSquare size={18} />
+                        </button>
+                    )}
                 </div>
 
                 <div className="relative group/menu">
@@ -108,7 +135,7 @@ const PostCard = ({ post }) => {
                             playsInline
                         />
                     )}
-                </div>
+                </div >
             ) : post.image && (
                 <div className="w-full max-h-[600px] bg-gray-900 border-y border-white/5 overflow-hidden">
                     <img src={post.image} alt="Drop Visual" className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" />
@@ -116,19 +143,21 @@ const PostCard = ({ post }) => {
             )}
 
             {/* Song Badge */}
-            {post.song && (post.song.title || post.song.artist) && (
-                <div className="px-5 py-3">
-                    <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl p-3 w-fit hover:bg-white/10 transition-colors cursor-pointer group/song">
-                        <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center text-primary group-hover/song:animate-spin">
-                            <Music2 size={20} />
-                        </div>
-                        <div>
-                            <p className="text-white font-bold text-sm leading-tight">{post.song.title || 'Unknown Track'}</p>
-                            <p className="text-gray-500 text-xs font-medium">{post.song.artist || 'Unknown Artist'}</p>
+            {
+                post.song && (post.song.title || post.song.artist) && (
+                    <div className="px-5 py-3">
+                        <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl p-3 w-fit hover:bg-white/10 transition-colors cursor-pointer group/song">
+                            <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center text-primary group-hover/song:animate-spin">
+                                <Music2 size={20} />
+                            </div>
+                            <div>
+                                <p className="text-white font-bold text-sm leading-tight">{post.song.title || 'Unknown Track'}</p>
+                                <p className="text-gray-500 text-xs font-medium">{post.song.artist || 'Unknown Artist'}</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Actions */}
             <div className="p-4 border-t border-white/5 bg-white/5 backdrop-blur-sm grid grid-cols-2 gap-4">
@@ -175,7 +204,7 @@ const PostCard = ({ post }) => {
                     </motion.div>
                 )}
             </AnimatePresence>
-        </motion.div>
+        </motion.div >
     );
 };
 
@@ -207,24 +236,7 @@ export default function Feed() {
                 Feed<span className="text-primary">.</span> <span className="text-xs font-sans font-bold text-gray-400 bg-white/5 px-3 py-1.5 rounded-full border border-white/10 not-italic tracking-widest uppercase">Live Pulse</span>
             </h1>
 
-            {/* Premium Banner */}
-            <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-3xl p-6 mb-12 relative overflow-hidden group hover:scale-[1.01] transition-transform cursor-pointer" onClick={() => window.dispatchEvent(new CustomEvent('open-premium'))}>
-                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <Flame size={120} />
-                </div>
-                <div className="relative z-10 flex items-center justify-between">
-                    <div>
-                        <h2 className="text-2xl font-black text-black">Get Sanchit Premium</h2>
-                        <p className="font-bold text-black/70">Unique Badges. Priority Access. Cool Themes.</p>
-                        <div className="mt-4 bg-black/10 backdrop-blur-md px-4 py-2 rounded-xl inline-flex font-black text-black">
-                            <span className="line-through opacity-50 mr-2">₹199</span> ₹90 / month
-                        </div>
-                    </div>
-                    <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center text-yellow-400 shadow-xl group-hover:rotate-12 transition-transform">
-                        <ArrowUp size={24} className="rotate-45" />
-                    </div>
-                </div>
-            </div>
+
 
             <div className="space-y-12">
                 {posts?.map((post, i) => (

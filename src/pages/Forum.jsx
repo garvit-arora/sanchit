@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchForum, createForumPost, voteForumThread, addForumComment, replyForumComment } from '../services/api';
-import { MessageSquare, ArrowBigUp, ArrowBigDown, Hash, Plus, X, Send, Reply } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { fetchForum, createForumPost, voteForumThread, addForumComment, replyForumComment, deleteForumThread, reportForumThread, deleteForumComment } from '../services/api';
+import { MessageSquare, ArrowBigUp, ArrowBigDown, Hash, Plus, X, Send, Reply, Trash2, ShieldAlert } from 'lucide-react';
 
 const Comment = ({ comment, threadId, currentUser, queryClient }) => {
+    const navigate = useNavigate();
     const [showReplyForm, setShowReplyForm] = useState(false);
+
+    const handleMessage = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        navigate('/chat', { state: { activeChatUser: { uid: comment.authorId, displayName: comment.author } } });
+    };
     const [replyText, setReplyText] = useState('');
 
     const replyMutation = useMutation({
@@ -21,13 +29,29 @@ const Comment = ({ comment, threadId, currentUser, queryClient }) => {
     return (
         <div className="space-y-4">
             <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-xs font-bold text-gray-400 border border-white/10 shrink-0">
+                <Link to={`/user/${comment.authorId}`} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-xs font-bold text-gray-400 border border-white/10 shrink-0 hover:border-primary transition-colors">
                     {comment.author?.[0]}
-                </div>
+                </Link>
                 <div className="flex-1 bg-white/[0.02] p-4 rounded-2xl border border-white/5 relative group">
                     <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs font-black text-white">{comment.author}</span>
-                        <span className="text-[10px] text-gray-600 font-bold">{new Date(comment.createdAt).toLocaleDateString()}</span>
+                        <div className="flex items-center gap-2">
+                            <Link to={`/user/${comment.authorId}`} className="text-xs font-black text-white hover:underline">{comment.author}</Link>
+                            {currentUser?.uid !== comment.authorId && (
+                                <button onClick={handleMessage} className="text-primary hover:scale-110 transition-transform">
+                                    <MessageSquare size={12} />
+                                </button>
+                            )}
+                        </div>
+                        <div className="flex gap-2 items-center">
+                            <span className="text-[10px] text-gray-600 font-bold">{new Date(comment.createdAt).toLocaleDateString()}</span>
+                            {currentUser?.uid === comment.authorId ? (
+                                <button onClick={() => {
+                                    if (window.confirm("Delete comment?")) deleteForumComment(threadId, comment._id).then(() => queryClient.invalidateQueries(['forum']))
+                                }} className="text-gray-600 hover:text-red-500"><Trash2 size={12} /></button>
+                            ) : (
+                                <button onClick={() => alert("Reported.")} className="text-gray-600 hover:text-yellow-500"><ShieldAlert size={12} /></button>
+                            )}
+                        </div>
                     </div>
                     <p className="text-sm text-gray-300 mb-2">{comment.text}</p>
 
@@ -84,9 +108,16 @@ const Comment = ({ comment, threadId, currentUser, queryClient }) => {
 };
 
 const ForumPost = ({ post, onVote, currentUser }) => {
+    const navigate = useNavigate();
     const [showComments, setShowComments] = useState(false);
     const [commentText, setCommentText] = useState('');
     const queryClient = useQueryClient();
+
+    const handleMessage = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        navigate('/chat', { state: { activeChatUser: { uid: post.authorId, displayName: post.author } } });
+    };
 
     const commentMutation = useMutation({
         mutationFn: () => addForumComment(post._id, commentText, currentUser.displayName, currentUser.uid),
@@ -95,6 +126,21 @@ const ForumPost = ({ post, onVote, currentUser }) => {
             setCommentText('');
         }
     });
+
+    const handleDelete = async () => {
+        if (window.confirm("Delete this thread?")) {
+            await deleteForumThread(post._id);
+            queryClient.invalidateQueries(['forum']);
+        }
+    };
+
+    const handleReport = async () => {
+        const reason = window.prompt("Why are you reporting this thread?");
+        if (reason) {
+            await reportForumThread(post._id, currentUser.uid, reason); // Ensure API exists
+            alert("Reported to moderators.");
+        }
+    };
 
     return (
         <div className="mb-4">
@@ -123,13 +169,33 @@ const ForumPost = ({ post, onVote, currentUser }) => {
 
                 {/* Content */}
                 <div className="flex-1">
-                    <h3 className="text-xl font-bold text-white mb-2 leading-tight">{post.title}</h3>
+                    <div className="flex justify-between items-start">
+                        <h3 className="text-xl font-bold text-white mb-2 leading-tight">{post.title}</h3>
+
+                        {/* Actions Logic */}
+                        <div onClick={e => e.stopPropagation()}>
+                            {currentUser?.uid === post.authorId ? (
+                                <button onClick={handleDelete} className="text-gray-500 hover:text-red-500 p-1">
+                                    <X size={16} />
+                                </button>
+                            ) : (
+                                <button onClick={handleReport} className="text-gray-500 hover:text-yellow-500 p-1">
+                                    <ShieldAlert size={16} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
                     <p className="text-gray-400 text-sm line-clamp-3 mb-4">{post.content}</p>
 
                     <div className="flex items-center gap-4 text-xs font-bold text-gray-500">
-                        <span className="flex items-center gap-1">
+                        <span className="flex items-center gap-2">
                             <div className="w-5 h-5 rounded-full bg-gradient-to-r from-pink-500 to-purple-500" />
-                            {post.author}
+                            <Link to={`/user/${post.authorId}`} className="hover:underline">{post.author}</Link>
+                            {currentUser?.uid !== post.authorId && (
+                                <button onClick={handleMessage} className="text-primary hover:scale-110 transition-transform">
+                                    <MessageSquare size={12} />
+                                </button>
+                            )}
                         </span>
                         <span className="flex items-center gap-1 hover:bg-white/5 p-1 rounded-md transition-colors font-black tracking-widest uppercase text-[10px]">
                             <MessageSquare size={14} /> {post.comments?.length || 0} Threads
