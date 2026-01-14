@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Link as LinkIcon, Calendar, Edit3, Award, Code, Terminal, LogOut, ShieldCheck, Trophy, MessageSquare, X, Heart, Pause, Play } from 'lucide-react';
+import { MapPin, Link as LinkIcon, Calendar, Edit3, Award, Code, Terminal, LogOut, ShieldCheck, Trophy, MessageSquare, X, Heart, Pause, Play, Zap } from 'lucide-react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import EditProfileModal from '../components/EditProfileModal';
 import { useAuth } from '../context/AuthContext';
@@ -360,10 +360,18 @@ export default function Profile() {
                             </>
                         ) : (
                             <button
-                                onClick={() => navigate('/chat', { state: { activeChatUser: profile } })}
+                                onClick={() => {
+                                    if (profile.isAlumni && !userProfile?.isPremium && currentUser?.email !== 'garvit.university@gmail.com') {
+                                        window.dispatchEvent(new CustomEvent('open-premium'));
+                                        return;
+                                    }
+                                    navigate('/chat', { state: { activeChatUser: profile } });
+                                }}
                                 className="bg-primary text-black px-8 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20"
                             >
-                                <MessageSquare size={18} /> Message
+                                <MessageSquare size={18} />
+                                {profile.isAlumni ? "DM Alumni" : "Message"}
+                                {profile.isAlumni && !userProfile?.isPremium && <Zap size={14} className="ml-1 fill-black" />}
                             </button>
                         )}
                     </div>

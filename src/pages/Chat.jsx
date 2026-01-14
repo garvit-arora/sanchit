@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { searchUsers, getChatRoomId, sendMessage, fetchMessages, fetchConversations } from '../services/chatService';
-import { Search, Send, User as UserIcon, MoreVertical, Phone, Video, ArrowLeft, MessageSquare, Sparkles, Shield } from 'lucide-react';
+import { Search, Send, User as UserIcon, MoreVertical, Phone, Video, ArrowLeft, MessageSquare, Sparkles, Shield, Star, Zap } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import { io } from 'socket.io-client';
 import { useLocation, Link } from 'react-router-dom';
@@ -10,7 +10,9 @@ import { useLocation, Link } from 'react-router-dom';
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 export default function Chat() {
-    const { currentUser } = useAuth();
+    const auth = useAuth();
+    const currentUser = auth?.currentUser;
+    const userProfile = auth?.userProfile;
     const location = useLocation();
     const [searchTerm, setSearchTerm] = useState('');
     const [searchResults, setSearchResults] = useState([]);
@@ -30,6 +32,7 @@ export default function Chat() {
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState('');
     const [isVanishMode, setIsVanishMode] = useState(false);
+    const [isAiTyping, setIsAiTyping] = useState(false);
     const messagesEndRef = useRef(null);
     const activeChatIdRef = useRef(activeChatUser?.uid);
 
@@ -43,16 +46,51 @@ export default function Chat() {
 
         socketRef.current.on('connect', () => {
             console.log('Connected to socket server');
-            socketRef.current.emit('user_online', currentUser.uid);
+            socketRef.current.emit('user_online', currentUser?.uid);
         });
 
         socketRef.current.on('receive_message', (message) => {
-            // Use Ref to check against current active room without reconnecting socket
-            const currentRoomId = getChatRoomId(currentUser.uid, activeChatIdRef.current);
-            if (message.roomId === currentRoomId && message.senderId !== currentUser.uid) {
-                setMessages(prev => [...prev, message]);
+            const currentRoomId = getChatRoomId(currentUser?.uid, activeChatIdRef.current);
+            if (message.roomId === currentRoomId && message.senderId !== currentUser?.uid) {
+                setMessages(prev => {
+                    // Remove any temp streaming version of this AI message
+                    if (message.senderId === 'gemini_bot') {
+                        return [...prev.filter(m => !m.id?.endsWith('_ai') && !m._id?.endsWith('_ai')), message];
+                    }
+                    return [...prev, message];
+                });
             }
             loadConversations();
+        });
+
+        socketRef.current.on('ai_typing', ({ roomId, isTyping }) => {
+            const currentRoomId = getChatRoomId(currentUser?.uid, activeChatIdRef.current);
+            if (roomId === currentRoomId) {
+                setIsAiTyping(isTyping);
+            }
+        });
+
+        socketRef.current.on('ai_stream_chunk', ({ roomId, messageId, fullText, senderName }) => {
+            const currentRoomId = getChatRoomId(currentUser?.uid, activeChatIdRef.current);
+            if (roomId === currentRoomId) {
+                setMessages(prev => {
+                    const existingIdx = prev.findIndex(m => m._id === messageId || m.id === messageId);
+                    if (existingIdx !== -1) {
+                        const newMsgs = [...prev];
+                        newMsgs[existingIdx] = { ...newMsgs[existingIdx], text: fullText };
+                        return newMsgs;
+                    } else {
+                        return [...prev, {
+                            id: messageId,
+                            text: fullText,
+                            senderId: 'gemini_bot',
+                            senderName,
+                            senderPhoto: 'https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg',
+                            createdAt: new Date()
+                        }];
+                    }
+                });
+            }
         });
 
         socketRef.current.on('user_status_change', ({ userId, online }) => {
@@ -74,7 +112,7 @@ export default function Chat() {
         // heartbeat every 30s
         const heartbeat = setInterval(() => {
             if (socketRef.current?.connected) {
-                socketRef.current.emit('user_online', currentUser.uid);
+                socketRef.current.emit('user_online', currentUser?.uid);
             }
         }, 30000);
 
@@ -82,12 +120,12 @@ export default function Chat() {
             clearInterval(heartbeat);
             socketRef.current.disconnect();
         };
-    }, [currentUser.uid]);
+    }, [currentUser?.uid]);
 
     // Join room when active user changes
     useEffect(() => {
         if (activeChatUser && socketRef.current) {
-            const roomId = getChatRoomId(currentUser.uid, activeChatUser.uid);
+            const roomId = getChatRoomId(currentUser?.uid, activeChatUser.uid);
             socketRef.current.emit('join_room', roomId);
 
             // Fetch history
@@ -97,7 +135,7 @@ export default function Chat() {
             };
             loadHistory();
         }
-    }, [activeChatUser?.uid, currentUser.uid]);
+    }, [activeChatUser?.uid, currentUser?.uid]);
 
     // Persist choice
     useEffect(() => {
@@ -113,7 +151,7 @@ export default function Chat() {
 
     const loadConversations = async () => {
         try {
-            let data = await fetchConversations(currentUser.uid);
+            let data = await fetchConversations(currentUser?.uid);
 
             // If we have an active chat user, ensure they are in the list
             if (activeChatUser && activeChatUser.uid !== 'gemini_group' && activeChatUser.uid !== 'personal_ai') {
@@ -136,20 +174,20 @@ export default function Chat() {
     // Initial load
     useEffect(() => {
         loadConversations();
-    }, [currentUser.uid, activeChatUser?.uid]);
+    }, [currentUser?.uid, activeChatUser?.uid]);
 
     // Handle Search
     useEffect(() => {
         const timer = setTimeout(async () => {
             if (searchTerm.length > 1) {
                 const results = await searchUsers(searchTerm);
-                setSearchResults(results.filter(u => u.uid !== currentUser.uid));
+                setSearchResults(results.filter(u => u.uid !== currentUser?.uid));
             } else {
                 setSearchResults([]);
             }
         }, 500);
         return () => clearTimeout(timer);
-    }, [searchTerm, currentUser.uid]);
+    }, [searchTerm, currentUser?.uid]);
 
     const isOnline = (lastSeen) => {
         if (!lastSeen) return false;
@@ -165,7 +203,7 @@ export default function Chat() {
 
     const handleSend = async () => {
         if (!inputText.trim() || !activeChatUser) return;
-        const roomId = getChatRoomId(currentUser.uid, activeChatUser.uid);
+        const roomId = getChatRoomId(currentUser?.uid, activeChatUser.uid);
 
         const currentText = inputText;
         setInputText('');
@@ -201,13 +239,31 @@ export default function Chat() {
                     <motion.div
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => setActiveChatUser({ uid: 'personal_ai', displayName: "Personal AI Assistant", photoURL: "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" })}
-                        className={`group p-4 rounded-2xl cursor-pointer border transition-all flex items-center gap-4 ${activeChatUser?.uid === 'personal_ai' ? 'bg-secondary border-secondary text-white' : 'bg-white/5 border-white/10 hover:border-secondary/50 text-white'}`}
+                        onClick={() => {
+                            if (!userProfile?.isPremium && currentUser?.email !== 'garvit.university@gmail.com') {
+                                window.dispatchEvent(new CustomEvent('open-premium'));
+                                return;
+                            }
+                            setActiveChatUser({ uid: 'personal_ai', displayName: "Personal AI Assistant", photoURL: "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" });
+                        }}
+                        className={`group p-4 rounded-2xl cursor-pointer border transition-all flex items-center gap-4 ${activeChatUser?.uid === 'personal_ai' ? 'bg-secondary border-secondary text-white shadow-[0_0_20px_rgba(249,115,22,0.3)]' : 'bg-white/5 border-white/10 hover:border-secondary/50 text-white'} ${!userProfile?.isPremium ? 'opacity-75' : ''}`}
                     >
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl shadow-lg bg-secondary/20`}>🤖</div>
-                        <div>
-                            <h4 className="font-black tracking-tight">Personal AI</h4>
-                            <p className={`text-[10px] font-bold uppercase tracking-widest ${activeChatUser?.uid === 'personal_ai' ? 'text-white/60' : 'text-secondary'}`}>Private Access</p>
+                        <div className="flex-1 overflow-hidden">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <h4 className="font-black tracking-tight">Personal AI</h4>
+                                    {!userProfile?.isPremium && <Zap size={14} className="text-secondary fill-secondary" />}
+                                </div>
+                                {conversations.find(c => c.user.uid === 'personal_ai') && (
+                                    <span className="text-[10px] opacity-40 font-bold">
+                                        {new Date(conversations.find(c => c.user.uid === 'personal_ai').lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                )}
+                            </div>
+                            <p className={`text-[10px] font-bold truncate ${activeChatUser?.uid === 'personal_ai' ? 'text-white/60' : 'text-gray-500'}`}>
+                                {conversations.find(c => c.user.uid === 'personal_ai')?.lastMessage || (userProfile?.isPremium ? 'Direct Line Open' : 'Upgrade for Private Access')}
+                            </p>
                         </div>
                         <Shield className="ml-auto opacity-20 group-hover:opacity-100 transition-opacity" size={20} />
                     </motion.div>
@@ -216,13 +272,31 @@ export default function Chat() {
                     <motion.div
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => setActiveChatUser({ uid: 'gemini_group', displayName: "Gemini AI Council", photoURL: "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" })}
-                        className={`group p-4 rounded-2xl cursor-pointer border transition-all flex items-center gap-4 ${activeChatUser?.uid === 'gemini_group' ? 'bg-primary border-primary text-black' : 'bg-white/5 border-white/10 hover:border-primary/50 text-white'}`}
+                        onClick={() => {
+                            if (!userProfile?.isPremium && currentUser?.email !== 'garvit.university@gmail.com') {
+                                window.dispatchEvent(new CustomEvent('open-premium'));
+                                return;
+                            }
+                            setActiveChatUser({ uid: 'gemini_group', displayName: "Gemini AI Council", photoURL: "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" });
+                        }}
+                        className={`group p-4 rounded-2xl cursor-pointer border transition-all flex items-center gap-4 ${activeChatUser?.uid === 'gemini_group' ? 'bg-primary border-primary text-black shadow-[0_0_20px_rgba(234,179,8,0.3)]' : 'bg-white/5 border-white/10 hover:border-primary/50 text-white'} ${!userProfile?.isPremium ? 'opacity-75' : ''}`}
                     >
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl shadow-lg ${activeChatUser?.uid === 'gemini_group' ? 'bg-black/20' : 'bg-primary/20 animate-pulse'}`}>✨</div>
-                        <div>
-                            <h4 className="font-black tracking-tight">AI Council</h4>
-                            <p className={`text-[10px] font-bold uppercase tracking-widest ${activeChatUser?.uid === 'gemini_group' ? 'text-black/60' : 'text-primary'}`}>Group Insight</p>
+                        <div className="flex-1 overflow-hidden">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <h4 className="font-black tracking-tight">AI Council</h4>
+                                    {!userProfile?.isPremium && <Zap size={14} className="text-primary fill-primary" />}
+                                </div>
+                                {conversations.find(c => c.user.uid === 'gemini_group') && (
+                                    <span className="text-[10px] opacity-40 font-bold">
+                                        {new Date(conversations.find(c => c.user.uid === 'gemini_group').lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                )}
+                            </div>
+                            <p className={`text-[10px] font-bold truncate ${activeChatUser?.uid === 'gemini_group' ? 'text-black/60' : 'text-gray-500'}`}>
+                                {conversations.find(c => c.user.uid === 'gemini_group')?.lastMessage || 'Collective Intelligence'}
+                            </p>
                         </div>
                         <Sparkles className="ml-auto opacity-20 group-hover:opacity-100 transition-opacity" size={20} />
                     </motion.div>
@@ -247,16 +321,27 @@ export default function Chat() {
                                 {searchResults.map(user => (
                                     <div
                                         key={user.uid}
-                                        onClick={() => { setActiveChatUser(user); setSearchTerm(''); }}
-                                        className="flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl cursor-pointer transition-all border border-transparent hover:border-white/5 group"
+                                        onClick={() => {
+                                            if (user.isAlumni && !userProfile?.isPremium && currentUser?.email !== 'garvit.university@gmail.com') {
+                                                window.dispatchEvent(new CustomEvent('open-premium'));
+                                                return;
+                                            }
+                                            setActiveChatUser(user);
+                                            setSearchTerm('');
+                                        }}
+                                        className={`flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl cursor-pointer transition-all border border-transparent hover:border-white/5 group ${user.isAlumni && !userProfile?.isPremium ? 'opacity-75' : ''}`}
                                     >
                                         <div className="relative">
                                             <UserAvatar src={user.photoURL} name={user.displayName} size="md" className="border-2 border-white/10" />
                                             <StatusDot online={isOnline(user.lastSeen)} />
+                                            {user.isAlumni && <div className="absolute -top-1 -left-1 bg-secondary p-1 rounded-full shadow-lg border border-black/20"><Star size={10} className="text-white fill-white" /></div>}
                                         </div>
-                                        <div>
-                                            <h4 className="text-white font-bold group-hover:text-primary transition-colors">{user.displayName}</h4>
-                                            <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest">{user.role}</p>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="text-white font-bold group-hover:text-primary transition-colors">{user.displayName}</h4>
+                                                {user.isAlumni && <span className="bg-secondary/20 text-secondary text-[8px] font-black px-1.5 py-0.5 rounded border border-secondary/20 tracking-tighter">ALUMNI</span>}
+                                            </div>
+                                            <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest">{user.isAlumni ? 'Industry Veteran' : user.role}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -267,31 +352,42 @@ export default function Chat() {
                     {/* Conversations List */}
                     <div className="px-3 space-y-1">
                         <p className="text-[10px] font-black text-gray-500 px-4 mb-2 tracking-[0.2em] uppercase">Recent Vibe</p>
-                        {conversations.length > 0 ? conversations.map(conv => (
-                            <div
-                                key={conv.user.uid}
-                                onClick={() => setActiveChatUser(conv.user)}
-                                className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all border group ${activeChatUser?.uid === conv.user.uid ? 'bg-white/10 border-white/20' : 'border-transparent hover:bg-white/5 hover:border-white/5'}`}
-                            >
-                                <div className="relative">
-                                    <UserAvatar src={conv.user.photoURL} name={conv.user.displayName} size="md" className="border-2 border-white/10" />
-                                    <StatusDot online={isOnline(conv.user.lastSeen)} />
-                                </div>
-                                <div className="flex-1 overflow-hidden">
-                                    <div className="flex justify-between items-center mb-0.5">
-                                        <h4 className="text-white font-bold truncate group-hover:text-primary transition-colors">{conv.user.displayName}</h4>
-                                        <span className="text-[10px] text-gray-600 font-bold">{new Date(conv.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        {conversations.filter(c => !['personal_ai', 'gemini_group'].includes(c.user.uid)).length > 0 ?
+                            conversations.filter(c => !['personal_ai', 'gemini_group'].includes(c.user.uid)).map(conv => (
+                                <div
+                                    key={conv.user.uid}
+                                    onClick={() => {
+                                        if (conv.user.isAlumni && !userProfile?.isPremium && currentUser?.email !== 'garvit.university@gmail.com') {
+                                            window.dispatchEvent(new CustomEvent('open-premium'));
+                                            return;
+                                        }
+                                        setActiveChatUser(conv.user);
+                                    }}
+                                    className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all border group ${activeChatUser?.uid === conv.user.uid ? 'bg-white/10 border-white/20' : 'border-transparent hover:bg-white/5 hover:border-white/5'} ${conv.user.isAlumni && !userProfile?.isPremium ? 'opacity-75' : ''}`}
+                                >
+                                    <div className="relative">
+                                        <UserAvatar src={conv.user.photoURL} name={conv.user.displayName} size="md" className="border-2 border-white/10" />
+                                        <StatusDot online={isOnline(conv.user.lastSeen)} />
+                                        {conv.user.isAlumni && <div className="absolute -top-1 -left-1 bg-secondary p-1 rounded-full shadow-lg border border-black/20"><Star size={10} className="text-white fill-white" /></div>}
                                     </div>
-                                    <p className="text-gray-500 text-xs truncate font-medium">{conv.lastMessage}</p>
+                                    <div className="flex-1 overflow-hidden">
+                                        <div className="flex justify-between items-center mb-0.5">
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="text-white font-bold truncate group-hover:text-primary transition-colors">{conv.user.displayName}</h4>
+                                                {conv.user.isAlumni && <Zap size={10} className="text-secondary fill-secondary" />}
+                                            </div>
+                                            <span className="text-[10px] text-gray-600 font-bold">{new Date(conv.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                        </div>
+                                        <p className="text-gray-500 text-xs truncate font-medium">{conv.lastMessage}</p>
+                                    </div>
                                 </div>
-                            </div>
-                        )) : !searchTerm && (
-                            <div className="flex flex-col items-center justify-center py-12 text-gray-600 px-8 text-center">
-                                <Search size={32} className="mb-4 opacity-10" />
-                                <p className="text-sm font-bold uppercase tracking-widest">No existing waves</p>
-                                <p className="text-xs font-medium mt-2">Start a new conversation by searching for a student above.</p>
-                            </div>
-                        )}
+                            )) : !searchTerm && (
+                                <div className="flex flex-col items-center justify-center py-12 text-gray-600 px-8 text-center">
+                                    <Search size={32} className="mb-4 opacity-10" />
+                                    <p className="text-sm font-bold uppercase tracking-widest">No existing waves</p>
+                                    <p className="text-xs font-medium mt-2">Start a new conversation by searching for a student above.</p>
+                                </div>
+                            )}
                     </div>
                 </div>
             </aside>
@@ -375,6 +471,22 @@ export default function Chat() {
                                     <div className="p-6 bg-white/5 rounded-full border border-white/10 animate-pulse"><MessageSquare size={32} /></div>
                                     <p className="text-sm font-bold uppercase tracking-widest">No frequencies yet</p>
                                 </div>
+                            )}
+                            {isAiTyping && (
+                                <motion.div
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    className="flex justify-start"
+                                >
+                                    <div className="bg-white/5 border border-white/10 rounded-[2rem] rounded-tl-none px-6 py-3.5 flex items-center gap-3 text-gray-400">
+                                        <div className="flex gap-1">
+                                            <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                                            <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                                            <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"></span>
+                                        </div>
+                                        <span className="text-xs font-black uppercase tracking-widest opacity-50">Council is thinking...</span>
+                                    </div>
+                                </motion.div>
                             )}
                             <div ref={messagesEndRef} />
                         </div>

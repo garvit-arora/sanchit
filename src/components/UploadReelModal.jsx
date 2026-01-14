@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Upload, Film, Check, Music, Search, ChevronRight } from 'lucide-react';
+import { X, Upload, Film, Check, Music, Search, ChevronRight, Loader2 } from 'lucide-react';
 
 // Popular song library
 const SONG_LIBRARY = [

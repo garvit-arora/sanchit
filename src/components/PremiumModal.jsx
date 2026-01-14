@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, CreditCard, Sparkles, Zap } from 'lucide-react';
+import { X, Check, Sparkles, Zap, Shield, Rocket, Brain, MessageCircle, Star } from 'lucide-react';
 
 export default function PremiumModal() {
     const [isOpen, setIsOpen] = useState(false);
@@ -13,69 +13,118 @@ export default function PremiumModal() {
 
     if (!isOpen) return null;
 
+    const premiumFeatures = [
+        { icon: <Brain size={16} />, text: "Personal Gemini AI Co-pilot" },
+        { icon: <MessageCircle size={16} />, text: "AI Council Access" },
+        { icon: <Star size={16} />, text: "Alumni Direct Access" },
+        { icon: <Rocket size={16} />, text: "1:1 Mentorship" },
+        { icon: <Shield size={16} />, text: "Verified Pro Badge" },
+        { icon: <Zap size={16} />, text: "Priority Gig Placement" },
+    ];
+
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                {/* Backdrop with extreme blur and dark tint */}
                 <motion.div
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.9, opacity: 0 }}
-                    className="bg-surface border border-yellow-500/30 rounded-3xl w-full max-w-md overflow-hidden relative shadow-[0_0_50px_rgba(234,179,8,0.2)]"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setIsOpen(false)}
+                    className="absolute inset-0 bg-black/90 backdrop-blur-xl"
+                />
+
+                <motion.div
+                    initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                    className="bg-[#0A0A0A] border border-white/10 rounded-[1.5rem] w-full max-w-2xl max-h-[95vh] overflow-hidden relative shadow-[0_0_80px_rgba(234,179,8,0.1)] flex flex-col md:flex-row"
                 >
-                    {/* Header */}
-                    <div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-8 text-black text-center relative overflow-hidden">
+                    {/* Compact Hero Side */}
+                    <div className="w-full md:w-5/12 bg-gradient-to-br from-primary via-orange-500 to-primary p-6 md:p-8 flex flex-col justify-center items-center text-black relative shrink-0">
+                        <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none overflow-hidden">
+                            <div className="absolute -top-1/2 -left-1/2 w-[200%] h-[200%] animate-spin-slow bg-[radial-gradient(circle,rgba(255,255,255,0.2)_1px,transparent_1px)] bg-[length:30px_30px]" />
+                        </div>
+
+                        <Sparkles size={40} md:size={50} strokeWidth={2.5} className="animate-pulse" />
+
+                        <h2 className="text-2xl md:text-3xl font-display font-black uppercase tracking-tighter text-center mt-3 leading-none">
+                            Vibe<br />Pro
+                        </h2>
+
+                        <div className="mt-3 bg-black/10 backdrop-blur-md px-3 py-1 rounded-full border border-black/5 text-[8px] font-black tracking-widest uppercase">
+                            Early Access
+                        </div>
+
                         <button
                             onClick={() => setIsOpen(false)}
-                            className="absolute top-4 right-4 bg-black/10 p-2 rounded-full hover:bg-black/20 transition-colors"
+                            className="md:hidden absolute top-4 right-4 bg-black/10 p-1.5 rounded-full"
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    {/* Compact Features Side */}
+                    <div className="w-full md:w-7/12 p-5 md:p-8 relative">
+                        <button
+                            onClick={() => setIsOpen(false)}
+                            className="hidden md:block absolute top-4 right-4 text-gray-600 hover:text-white transition-colors"
                         >
                             <X size={20} />
                         </button>
-                        <Sparkles className="mx-auto mb-4" size={48} />
-                        <h2 className="text-3xl font-display font-black uppercase tracking-tighter">Sanchit Premium</h2>
-                        <p className="font-bold opacity-80 mt-2">Level up your coding career.</p>
-                    </div>
 
-                    <div className="p-8">
-                        <div className="grid grid-cols-2 gap-4 mb-8">
-                            {/* Free Plan */}
-                            <div className="bg-white/5 p-4 rounded-xl border border-white/5 opacity-50">
-                                <h3 className="text-lg font-black text-white mb-2">Basic</h3>
-                                <p className="text-2xl font-bold text-gray-400 mb-4">₹0</p>
-                                <ul className="space-y-2 text-xs text-gray-400">
-                                    <li className="flex gap-2"><Check size={12} /> Public Forum</li>
-                                    <li className="flex gap-2"><Check size={12} /> Apply to Gigs</li>
-                                    <li className="flex gap-2"><Check size={12} /> View Reels</li>
-                                </ul>
+                        <div className="space-y-4">
+                            <div>
+                                <h3 className="text-white text-lg md:text-xl font-black tracking-tight leading-none">Elevate Your Vibe</h3>
+                                <p className="text-gray-500 text-[9px] font-bold uppercase tracking-widest mt-1.5 bg-white/5 inline-block px-2 py-0.5 rounded border border-white/5">
+                                    P2P DM: Always Free ⚡
+                                </p>
                             </div>
 
-                            {/* Premium Plan */}
-                            <div className="bg-gradient-to-br from-yellow-400/20 to-orange-500/20 p-4 rounded-xl border border-yellow-500/50 relative overflow-hidden">
-                                <div className="absolute top-0 right-0 bg-yellow-500 text-black text-[10px] font-black px-2 py-0.5 rounded-bl-lg">POPULAR</div>
-                                <h3 className="text-lg font-black text-white mb-2">Pro</h3>
-                                <p className="text-2xl font-bold text-yellow-400 mb-4">₹90</p>
-                                <ul className="space-y-2 text-xs text-gray-200">
-                                    <li className="flex gap-2"><Check size={12} className="text-yellow-400" /> <b>Pro Badge</b></li>
-                                    <li className="flex gap-2"><Check size={12} className="text-yellow-400" /> <b>Priority Applications</b></li>
-                                    <li className="flex gap-2"><Check size={12} className="text-yellow-400" /> Custom Themes</li>
-                                    <li className="flex gap-2"><Check size={12} className="text-yellow-400" /> Direct DMs</li>
-                                </ul>
+                            <div className="grid grid-cols-2 gap-2 md:gap-3">
+                                {premiumFeatures.map((feature, idx) => (
+                                    <motion.div
+                                        key={idx}
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        className="p-3 bg-white/5 border border-white/10 rounded-xl group hover:border-primary/50 transition-all flex items-center gap-3"
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-black transition-all shrink-0">
+                                            {React.cloneElement(feature.icon, { size: 14 })}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <h4 className="text-white text-[11px] font-black tracking-tight leading-tight uppercase group-hover:text-primary transition-colors">{feature.text}</h4>
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </div>
+
+                            <div className="pt-4 border-t border-white/5">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div>
+                                        <div className="flex items-baseline gap-2">
+                                            <span className="text-2xl font-black text-white">₹99</span>
+                                            <span className="text-[10px] font-bold text-gray-600 line-through">₹499</span>
+                                        </div>
+                                        <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Lifetime Access</p>
+                                    </div>
+                                    <span className="bg-primary/20 text-primary text-[8px] font-black px-2 py-0.5 rounded border border-primary/20">
+                                        80% OFF
+                                    </span>
+                                </div>
+
+                                <button
+                                    onClick={() => alert("Payment Gateway Integration Coming Soon!")}
+                                    className="w-full bg-primary text-black font-black py-3 rounded-xl flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-95 transition-all shadow-lg shadow-primary/10 group text-[11px]"
+                                >
+                                    ACTIVATE PRO <Rocket size={14} className="group-hover:translate-x-1 transition-transform" />
+                                </button>
+
+                                <p className="text-center text-[7px] text-gray-600 mt-2 font-black uppercase tracking-[0.2em]">
+                                    Unlimited AI • Secure Transmissions
+                                </p>
                             </div>
                         </div>
-
-                        <div className="text-center mb-6">
-                            <p className="text-xs text-secondary mt-2 font-bold animate-pulse">LIMITED TIME LAUNCH OFFER</p>
-                        </div>
-
-                        <button
-                            onClick={() => alert("Payment Gateway Integration Coming Soon!")}
-                            className="w-full bg-primary text-black font-black py-4 rounded-2xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20"
-                        >
-                            <Zap size={20} fill="currentColor" /> Subscribe Now
-                        </button>
-
-                        <p className="text-center text-xs text-gray-600 mt-4 font-medium">
-                            Cancel anytime. Secure payment handled by Razorpay.
-                        </p>
                     </div>
                 </motion.div>
             </div>
