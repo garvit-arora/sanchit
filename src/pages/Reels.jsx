@@ -156,7 +156,6 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
                             className="w-full h-full object-cover cursor-pointer z-0"
                             loop
                             playsInline
-                            autoPlay
                             webkit-playsinline="true"
                             muted={globalMuted}
                             preload="auto"
@@ -262,7 +261,6 @@ const VideoPlayer = ({ reel, isActive, shouldRenderVideo, currentUser, globalMut
                             className="w-full h-full object-cover cursor-pointer"
                             loop
                             playsInline
-                            autoPlay
                             webkit-playsinline="true"
                             muted={globalMuted}
                             preload="auto"

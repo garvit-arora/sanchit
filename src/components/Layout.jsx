@@ -39,19 +39,32 @@ export default function Layout({ children }) {
                     </NavLink>
                 </div>
 
-                <nav className="flex-1 space-y-4 mb-6">
+                <nav className="flex-1 space-y-4 mb-6 overflow-y-auto pr-2 scrollbar-hide">
                     <SidebarLink to="/feed" icon={Home} label="Feed" />
                     <SidebarLink to="/forum" icon={MessageSquare} label="Forum" />
                     <SidebarLink to="/reels" icon={PlaySquare} label="Reels" />
                     <SidebarLink to="/leaderboard" icon={Trophy} label="Rankings" />
                     <SidebarLink to="/chat" icon={MessageSquare} label="DMs" />
                     <SidebarLink to="/opportunities" icon={Briefcase} label="Gigs" />
+                    <SidebarLink to="/hackathons" icon={Trophy} label="Hackathons" />
                     {isAdmin && (
                         <SidebarLink to="/admin" icon={Shield} label="Admin" />
                     )}
                 </nav>
 
-                {/* Mini Leaderboard Removed */}
+                {/* Premium Button */}
+                <button
+                    onClick={() => window.dispatchEvent(new CustomEvent('open-premium'))}
+                    className="mb-4 mx-2 bg-gradient-to-r from-yellow-400 to-orange-500 p-4 rounded-2xl flex items-center gap-3 text-black font-black shadow-lg hover:scale-[1.02] transition-transform"
+                >
+                    <div className="bg-white/20 p-2 rounded-lg">
+                        <Trophy size={20} className="text-black" />
+                    </div>
+                    <div>
+                        <p className="text-sm">Get Premium</p>
+                        <p className="text-[10px] opacity-75">Unlock Exclusive Features</p>
+                    </div>
+                </button>
 
                 <div className="mt-4 pt-6 border-t border-white/10">
                     <NavLink to="/profile" className={({ isActive }) => `

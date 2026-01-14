@@ -145,6 +145,22 @@ export const applyForJob = async (jobId, applicationData) => {
     return res.data;
 };
 
+// --- HACKATHONS (MongoDB) ---
+export const fetchHackathons = async () => {
+    try {
+        const res = await apiClient.get('/hackathons');
+        return res.data;
+    } catch (error) {
+        console.error("Error fetching hackathons:", error);
+        return [];
+    }
+};
+
+export const applyForHackathon = async (hackathonId, applicationData) => {
+    const res = await apiClient.post(`/hackathons/${hackathonId}/apply`, applicationData);
+    return res.data;
+};
+
 // --- REELS (MongoDB) ---
 export const fetchReels = async () => {
     const res = await apiClient.get('/reels');

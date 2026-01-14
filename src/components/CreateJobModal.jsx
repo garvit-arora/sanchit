@@ -4,7 +4,7 @@ import { X, Send, Briefcase, MapPin, DollarSign } from 'lucide-react';
 import apiClient from '../services/apiClient';
 import { useAuth } from '../context/AuthContext';
 
-export default function CreateJobModal({ isOpen, onClose, onCreated }) {
+export default function CreateJobModal({ isOpen, onClose, onCreated, title = "Post a Gig", apiPath = "/jobs" }) {
     const [formData, setFormData] = useState({
         title: '',
         company: '',
@@ -21,7 +21,7 @@ export default function CreateJobModal({ isOpen, onClose, onCreated }) {
         e.preventDefault();
         setIsLoading(true);
         try {
-            await apiClient.post('/jobs', {
+            await apiClient.post(apiPath, {
                 ...formData,
                 stipend: formData.stipend,
                 postedBy: currentUser.uid,
@@ -32,8 +32,8 @@ export default function CreateJobModal({ isOpen, onClose, onCreated }) {
             onCreated();
             onClose();
         } catch (err) {
-            console.error("Job creation error:", err);
-            alert(err.response?.data?.error || "Failed to create job");
+            console.error("Creation error:", err);
+            alert(err.response?.data?.error || "Failed to create");
         } finally {
             setIsLoading(false);
         }
@@ -50,7 +50,7 @@ export default function CreateJobModal({ isOpen, onClose, onCreated }) {
             >
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                        <Briefcase className="text-primary" /> Post a Gig
+                        <Briefcase className="text-primary" /> {title}
                     </h2>
                     <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
                         <X size={24} />

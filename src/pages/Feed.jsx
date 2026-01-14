@@ -207,6 +207,25 @@ export default function Feed() {
                 Feed<span className="text-primary">.</span> <span className="text-xs font-sans font-bold text-gray-400 bg-white/5 px-3 py-1.5 rounded-full border border-white/10 not-italic tracking-widest uppercase">Live Pulse</span>
             </h1>
 
+            {/* Premium Banner */}
+            <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-3xl p-6 mb-12 relative overflow-hidden group hover:scale-[1.01] transition-transform cursor-pointer" onClick={() => window.dispatchEvent(new CustomEvent('open-premium'))}>
+                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <Flame size={120} />
+                </div>
+                <div className="relative z-10 flex items-center justify-between">
+                    <div>
+                        <h2 className="text-2xl font-black text-black">Get Sanchit Premium</h2>
+                        <p className="font-bold text-black/70">Unique Badges. Priority Access. Cool Themes.</p>
+                        <div className="mt-4 bg-black/10 backdrop-blur-md px-4 py-2 rounded-xl inline-flex font-black text-black">
+                            <span className="line-through opacity-50 mr-2">₹199</span> ₹90 / month
+                        </div>
+                    </div>
+                    <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center text-yellow-400 shadow-xl group-hover:rotate-12 transition-transform">
+                        <ArrowUp size={24} className="rotate-45" />
+                    </div>
+                </div>
+            </div>
+
             <div className="space-y-12">
                 {posts?.map((post, i) => (
                     <motion.div
