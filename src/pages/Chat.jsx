@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { searchUsers, getChatRoomId, sendMessage, fetchMessages, fetchConversations } from '../services/chatService';
-import { Search, Send, User as UserIcon, MoreVertical, Phone, Video, ArrowLeft, MessageSquare, Sparkles } from 'lucide-react';
+import { Search, Send, User as UserIcon, MoreVertical, Phone, Video, ArrowLeft, MessageSquare, Sparkles, Shield } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import { io } from 'socket.io-client';
 import { useLocation, Link } from 'react-router-dom';
@@ -31,29 +31,58 @@ export default function Chat() {
     const [inputText, setInputText] = useState('');
     const [isVanishMode, setIsVanishMode] = useState(false);
     const messagesEndRef = useRef(null);
+    const activeChatIdRef = useRef(activeChatUser?.uid);
 
-    // Initialize Socket
+    // Keep ref sync with state
+    useEffect(() => {
+        activeChatIdRef.current = activeChatUser?.uid;
+    }, [activeChatUser?.uid]);
+
     useEffect(() => {
         socketRef.current = io(SOCKET_URL);
 
         socketRef.current.on('connect', () => {
             console.log('Connected to socket server');
+            socketRef.current.emit('user_online', currentUser.uid);
         });
 
         socketRef.current.on('receive_message', (message) => {
-            // Only add if it belongs to current active room
-            const currentRoomId = getChatRoomId(currentUser.uid, activeChatUser?.uid);
+            // Use Ref to check against current active room without reconnecting socket
+            const currentRoomId = getChatRoomId(currentUser.uid, activeChatIdRef.current);
             if (message.roomId === currentRoomId && message.senderId !== currentUser.uid) {
                 setMessages(prev => [...prev, message]);
             }
-            // Update conversation list locally
             loadConversations();
         });
 
+        socketRef.current.on('user_status_change', ({ userId, online }) => {
+            // Update conversation list
+            setConversations(prev => prev.map(conv => {
+                if (conv.user.uid === userId) {
+                    return { ...conv, user: { ...conv.user, lastSeen: online ? new Date() : conv.user.lastSeen } };
+                }
+                return conv;
+            }));
+
+            // If it's the active user, we'll see it reflected in the next render cycle or via setConversations
+            // Actually better to update activeChatUser if it matches
+            if (activeChatIdRef.current === userId) {
+                setActiveChatUser(prev => prev?.uid === userId ? { ...prev, lastSeen: online ? new Date() : prev.lastSeen } : prev);
+            }
+        });
+
+        // heartbeat every 30s
+        const heartbeat = setInterval(() => {
+            if (socketRef.current?.connected) {
+                socketRef.current.emit('user_online', currentUser.uid);
+            }
+        }, 30000);
+
         return () => {
+            clearInterval(heartbeat);
             socketRef.current.disconnect();
         };
-    }, [activeChatUser?.uid]);
+    }, [currentUser.uid]);
 
     // Join room when active user changes
     useEffect(() => {
@@ -87,7 +116,7 @@ export default function Chat() {
             let data = await fetchConversations(currentUser.uid);
 
             // If we have an active chat user, ensure they are in the list
-            if (activeChatUser && activeChatUser.uid !== 'gemini_group') {
+            if (activeChatUser && activeChatUser.uid !== 'gemini_group' && activeChatUser.uid !== 'personal_ai') {
                 const exists = data.some(c => c.user.uid === activeChatUser.uid);
                 if (!exists) {
                     data = [{
@@ -167,6 +196,21 @@ export default function Chat() {
                         <h2 className="text-3xl font-display font-black text-white italic tracking-tighter">Vibe<span className="text-primary">.</span></h2>
                         <div className="p-2 bg-white/5 rounded-xl text-gray-400"><MessageSquare size={20} /></div>
                     </div>
+
+                    {/* Personal AI - Private */}
+                    <motion.div
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setActiveChatUser({ uid: 'personal_ai', displayName: "Personal AI Assistant", photoURL: "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" })}
+                        className={`group p-4 rounded-2xl cursor-pointer border transition-all flex items-center gap-4 ${activeChatUser?.uid === 'personal_ai' ? 'bg-secondary border-secondary text-white' : 'bg-white/5 border-white/10 hover:border-secondary/50 text-white'}`}
+                    >
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl shadow-lg bg-secondary/20`}>🤖</div>
+                        <div>
+                            <h4 className="font-black tracking-tight">Personal AI</h4>
+                            <p className={`text-[10px] font-bold uppercase tracking-widest ${activeChatUser?.uid === 'personal_ai' ? 'text-white/60' : 'text-secondary'}`}>Private Access</p>
+                        </div>
+                        <Shield className="ml-auto opacity-20 group-hover:opacity-100 transition-opacity" size={20} />
+                    </motion.div>
 
                     {/* Gemini AI Group - Pin */}
                     <motion.div
