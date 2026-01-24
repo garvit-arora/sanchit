@@ -14,7 +14,7 @@ const GlitchText = ({ text }) => {
 };
 
 const FeatureCard = ({ icon: Icon, title, desc }) => (
-    <motion.div 
+    <motion.div
         whileHover={{ y: -10 }}
         className="bg-surface border border-white/5 p-8 rounded-3xl relative overflow-hidden group"
     >
@@ -61,9 +61,9 @@ export default function Landing() {
             {/* Navbar */}
             <nav className="p-6 md:px-12 flex justify-between items-center z-50 sticky top-0 bg-background/80 backdrop-blur-md border-b border-white/5">
                 <h1 className="text-2xl font-bold font-display text-white">San<span className="text-primary">chit</span>.</h1>
-                <button 
-                  onClick={() => navigate('/login')}
-                  className="px-6 py-2 border border-white/20 rounded-full text-white font-bold hover:bg-white/10 transition-all font-display"
+                <button
+                    onClick={() => navigate('/login')}
+                    className="px-6 py-2 border border-white/20 rounded-full text-white font-bold hover:bg-white/10 transition-all font-display"
                 >
                     Log In
                 </button>
@@ -73,8 +73,8 @@ export default function Landing() {
             <header className="min-h-screen flex flex-col justify-center items-center text-center px-4 relative z-10 pt-20 pb-32">
                 <div className="mb-4 flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface border border-white/10">
                     <span className="relative flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-accent"></span>
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-accent"></span>
                     </span>
                     <span className="text-sm font-bold text-gray-400 font-mono">{studentsOnline} students online now</span>
                 </div>
@@ -83,12 +83,12 @@ export default function Landing() {
                 <GlitchText text="IS ONLINE." />
 
                 <p className="max-w-2xl text-gray-400 text-xl md:text-2xl mt-8 font-medium leading-relaxed">
-                    The exclusive digital playground for engineers. <br/>
+                    The exclusive digital playground for engineers. <br />
                     <span className="text-white">Connect. Compete. Flex.</span>
                 </p>
 
                 <div className="flex flex-col md:flex-row gap-4 mt-12">
-                     <motion.button
+                    <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => navigate('/login')}
@@ -96,15 +96,13 @@ export default function Landing() {
                     >
                         JOIN THE CULT <Zap className="fill-black" />
                     </motion.button>
-                     <button className="px-10 py-5 rounded-full border border-white/20 text-white font-bold hover:bg-white/5 transition-colors">
-                        View Demo
-                    </button>
                 </div>
+
             </header>
 
             {/* Marquee */}
             <div className="py-6 bg-primary overflow-hidden whitespace-nowrap -rotate-1 mb-20 origin-left">
-                <motion.div 
+                <motion.div
                     animate={{ x: [0, -1000] }}
                     transition={{ repeat: Infinity, duration: 20, ease: "linear" }}
                     className="flex gap-8 text-black font-black text-4xl md:text-6xl"
@@ -125,33 +123,33 @@ export default function Landing() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <FeatureCard 
-                        icon={Shield} 
-                        title="Community Only" 
-                        desc="No bots. No randoms. Join the exclusive network of engineers and coders." 
+                    <FeatureCard
+                        icon={Shield}
+                        title="Community Only"
+                        desc="No bots. No randoms. Join the exclusive network of engineers and coders."
                     />
-                    <FeatureCard 
-                        icon={Globe} 
-                        title="Global Rankings" 
-                        desc="Sync your LeetCode & GitHub. Compete on the leaderboard against students from IITs, NITs, and IIITs." 
+                    <FeatureCard
+                        icon={Globe}
+                        title="Global Rankings"
+                        desc="Sync your LeetCode & GitHub. Compete on the leaderboard against students from IITs, NITs, and IIITs."
                     />
-                    <FeatureCard 
-                        icon={Terminal} 
-                        title="Anonymous Rant" 
-                        desc="Need to vent about the cafeteria food or that one professor? Go anonymous. We won't spill." 
+                    <FeatureCard
+                        icon={Terminal}
+                        title="Anonymous Rant"
+                        desc="Need to vent about the cafeteria food or that one professor? Go anonymous. We won't spill."
                     />
                 </div>
             </section>
 
-             {/* How it Works */}
+            {/* How it Works */}
             <section className="bg-surface border-y border-white/5 py-20 relative overflow-hidden">
                 <div className="max-w-5xl mx-auto px-4 relative z-10">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
                         <div>
-                             <h2 className="text-4xl md:text-6xl font-display font-black text-white mb-12">How to Enter the System</h2>
-                             <Step num="01" title="Sign Up" desc="Login with Google. Fast, secure, and easy." />
-                             <Step num="02" title="Claim Profile" desc="Set your alias. Sync your coding stats. Start climbing." />
-                             <Step num="03" title="Start Coding" desc="Connect with peers and skip the boring stuff." />
+                            <h2 className="text-4xl md:text-6xl font-display font-black text-white mb-12">How to Enter the System</h2>
+                            <Step num="01" title="Sign Up" desc="Login with Google. Fast, secure, and easy." />
+                            <Step num="02" title="Claim Profile" desc="Set your alias. Sync your coding stats. Start climbing." />
+                            <Step num="03" title="Start Coding" desc="Connect with peers and skip the boring stuff." />
                         </div>
                         <div className="relative">
                             <div className="absolute inset-0 bg-gradient-to-tr from-primary to-secondary rounded-full blur-[100px] opacity-20" />
@@ -175,13 +173,13 @@ export default function Landing() {
 
             {/* CTA */}
             <section className="py-32 text-center px-4">
-                 <h2 className="text-5xl md:text-8xl font-display font-black text-white mb-8">Ready to Plug In?</h2>
-                 <button 
+                <h2 className="text-5xl md:text-8xl font-display font-black text-white mb-8">Ready to Plug In?</h2>
+                <button
                     onClick={() => navigate('/login')}
                     className="bg-primary text-black text-2xl font-black px-12 py-6 rounded-full hover:scale-110 hover:rotate-2 transition-all shadow-[0_0_50px_rgba(234,179,8,0.5)]"
                 >
                     LAUNCH APP
-                 </button>
+                </button>
             </section>
         </div>
     );

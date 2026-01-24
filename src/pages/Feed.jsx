@@ -30,6 +30,7 @@ const PostCard = ({ post }) => {
         });
     };
 
+
     const likeMutation = useMutation({
         mutationFn: () => likePost(post._id || post.id, currentUser.uid),
         onSuccess: () => queryClient.invalidateQueries(['feed'])
@@ -49,7 +50,7 @@ const PostCard = ({ post }) => {
         <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-surface border border-white/5 rounded-3xl overflow-hidden mb-8"
+            className="bg-surface border border-white/5 rounded-3xl overflow-hidden mb-12"
         >
             {/* Header */}
             <div className="p-4 md:p-6 flex justify-between items-center bg-white/[0.02]">
@@ -114,7 +115,7 @@ const PostCard = ({ post }) => {
             </div>
 
             {/* Content */}
-            <div className="px-5 md:px-8 py-4">
+            <div className="px-5 md:px-8 py-8">
                 <p className="text-gray-200 text-base md:text-xl font-medium leading-relaxed whitespace-pre-wrap">{post.content}</p>
             </div>
 
@@ -238,7 +239,7 @@ export default function Feed() {
 
 
 
-            <div className="space-y-12">
+            <div className="space-y-16">
                 {posts?.map((post, i) => (
                     <motion.div
                         key={post._id || post.id}

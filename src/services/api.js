@@ -1,237 +1,239 @@
-import apiClient, { API_URL } from './apiClient';
-import { collection, query, orderBy, limit, getDocs, addDoc } from "firebase/firestore";
-import { db } from "../firebase";
+import { feedPosts, currentUserProfile, verifiedUsers, forumThreads, jobOpportunities, activeHackathons, reelsData, statsLeaderboard } from '../initialData';
 
-// --- POSTS (Feed) via MongoDB ---
+// Helper to simulate API delay
+const delay = (ms = 500) => new Promise(resolve => setTimeout(resolve, ms));
+
+// --- POSTS (Feed) ---
 export const fetchFeed = async () => {
-    const res = await apiClient.get('/posts');
-    return res.data;
+    await delay();
+    return feedPosts;
 };
 
 export const createPost = async (content, image, video, song, user) => {
-    const res = await apiClient.post('/posts', {
+    await delay();
+    const newPost = {
+        _id: `post-${Date.now()}`,
         content,
-        image, // Base64 or URL
-        video, // URL
-        song, // { title, artist }
+        image,
+        video,
+        song,
         author: user.displayName || 'Anonymous',
         authorId: user.uid,
-        authorPhoto: user.photoURL
-    });
-    return res.data;
+        authorPhoto: user.photoURL,
+        likes: [],
+        comments: [],
+        createdAt: new Date().toISOString()
+    };
+    feedPosts.unshift(newPost);
+    return newPost;
 };
 
 export const likePost = async (postId, userId) => {
-    const res = await apiClient.put(`/posts/${postId}/like`, { userId });
-    return res.data;
+    await delay(100);
+    const post = feedPosts.find(p => (p._id || p.id) === postId);
+    if (post) {
+        if (!post.likes) post.likes = [];
+        const index = post.likes.indexOf(userId);
+        if (index > -1) post.likes.splice(index, 1);
+        else post.likes.push(userId);
+    }
+    return post;
 };
 
 export const addComment = async (postId, text, author) => {
-    const res = await apiClient.post(`/posts/${postId}/comment`, { text, author });
-    return res.data;
+    await delay(100);
+    const post = feedPosts.find(p => (p._id || p.id) === postId);
+    if (post) {
+        if (!post.comments) post.comments = [];
+        post.comments.push({ author, text, createdAt: new Date().toISOString() });
+    }
+    return post;
 };
 
 export const deletePost = async (postId) => {
-    const res = await apiClient.delete(`/posts/${postId}`);
-    return res.data;
+    await delay(200);
+    const index = feedPosts.findIndex(p => (p._id || p.id) === postId);
+    if (index > -1) feedPosts.splice(index, 1);
+    return { success: true };
 };
 
 export const reportPost = async (postId, reporterId, reason) => {
-    const res = await apiClient.post(`/posts/${postId}/report`, { reporterId, reason });
-    return res.data;
+    await delay(200);
+    return { success: true };
 };
 
 export const fetchUserPosts = async (userId) => {
-    try {
-        const res = await apiClient.get(`/posts/user/${userId}`);
-        return res.data;
-    } catch (error) {
-        return [];
-    }
+    await delay();
+    return feedPosts.filter(p => p.authorId === userId);
 };
 
 // --- USER & LEETCODE ---
 export const fetchUserProfile = async (uid) => {
-    try {
-        const res = await apiClient.get(`/users/${uid}`);
-        return res.data;
-    } catch (error) {
-        console.error("Error fetching user profile:", error);
-        return null;
-    }
+    await delay();
+    if (uid === currentUserProfile.uid) return currentUserProfile;
+    return verifiedUsers.find(u => u.uid === uid) || currentUserProfile;
 };
 
 export const fetchLeetCodeStats = async (username) => {
-    // Proxy through your backend to avoid CORS
-    // return axios.get(`${API_URL}/leetcodeproxy/${username}`)
-    // Mock for now until backend proxy is ready:
+    await delay();
     return {
-        ranking: Math.floor(Math.random() * 100000),
-        totalSolved: Math.floor(Math.random() * 500),
-        easy: 10, medium: 20, hard: 5
+        ranking: 12543,
+        totalSolved: 450,
+        easy: 200, medium: 180, hard: 70
     };
 };
 
-// --- FORUM (MongoDB) ---
+// --- FORUM ---
 export const fetchForum = async () => {
-    try {
-        const res = await apiClient.get('/forum');
-        return res.data;
-    } catch (error) {
-        console.error("Error fetching forum:", error);
-        return [];
-    }
+    await delay();
+    return forumThreads;
 };
 
 export const createForumPost = async (title, content, tags, user) => {
-    const res = await apiClient.post('/forum', {
+    await delay();
+    const newThread = {
+        _id: `thread-${Date.now()}`,
         title,
         content,
         tags,
-        author: user.displayName || 'Anonymous',
-        authorId: user.uid
-    });
-    return res.data;
+        author: user,
+        upvotes: [],
+        downvotes: [],
+        comments: [],
+        createdAt: new Date().toISOString()
+    };
+    forumThreads.unshift(newThread);
+    return newThread;
 };
 
 export const voteForumThread = async (threadId, userId, type) => {
-    const res = await apiClient.put(`/forum/${threadId}/vote`, { userId, type });
-    return res.data;
+    await delay(100);
+    const thread = forumThreads.find(t => t._id === threadId);
+    if (thread) {
+        if (type === 'up') {
+            if (!thread.upvotes.includes(userId)) thread.upvotes.push(userId);
+        } else {
+            if (!thread.downvotes.includes(userId)) thread.downvotes.push(userId);
+        }
+    }
+    return thread;
 };
 
 export const addForumComment = async (threadId, text, author, authorId) => {
-    const res = await apiClient.post(`/forum/${threadId}/comment`, { text, author, authorId });
-    return res.data;
+    await delay(100);
+    return { success: true };
 };
 
 export const replyForumComment = async (threadId, commentId, text, author, authorId) => {
-    const res = await apiClient.post(`/forum/${threadId}/comment/${commentId}/reply`, { text, author, authorId });
-    return res.data;
+    await delay(100);
+    return { success: true };
 };
 
 export const fetchUserThreads = async (userId) => {
-    try {
-        const res = await apiClient.get(`/forum/user/${userId}`);
-        return res.data;
-    } catch (error) {
-        return [];
-    }
+    await delay();
+    return forumThreads.filter(t => t.author?.uid === userId);
 };
 
 export const deleteForumThread = async (threadId) => {
-    const res = await apiClient.delete(`/forum/${threadId}`);
-    return res.data;
+    await delay(200);
+    return { success: true };
 };
 
 export const updateForumThread = async (threadId, data) => {
-    const res = await apiClient.put(`/forum/${threadId}`, data);
-    return res.data;
+    await delay(200);
+    return { success: true };
 };
 
 export const deleteForumComment = async (threadId, commentId) => {
-    const res = await apiClient.delete(`/forum/${threadId}/comment/${commentId}`);
-    return res.data;
+    await delay(200);
+    return { success: true };
 };
 
 export const reportForumThread = async (threadId, reporterId, reason) => {
-    const res = await apiClient.post(`/forum/${threadId}/report`, { reporterId, reason });
-    return res.data;
+    await delay(200);
+    return { success: true };
 };
 
-// --- JOBS & OPPORTUNITIES (MongoDB) ---
+// --- JOBS & OPPORTUNITIES ---
 export const fetchJobs = async () => {
-    try {
-        const res = await apiClient.get('/jobs');
-        return res.data;
-    } catch (error) {
-        console.error("Error fetching jobs:", error);
-        return [];
-    }
+    await delay();
+    return jobOpportunities;
 };
 
 export const fetchGigs = async () => {
-    try {
-        const res = await apiClient.get('/gigs');
-        return res.data;
-    } catch (error) {
-        console.error("Error fetching gigs:", error);
-        return [];
-    }
+    await delay();
+    return jobOpportunities.filter(o => o.type === 'Gig');
 };
 
 export const applyForJob = async (jobId, applicationData) => {
-    const res = await apiClient.post(`/jobs/${jobId}/apply`, applicationData);
-    return res.data;
+    await delay(500);
+    return { success: true };
 };
 
 export const deleteJob = async (jobId) => {
-    const res = await apiClient.delete(`/jobs/${jobId}`);
-    return res.data;
+    await delay(200);
+    return { success: true };
 };
 
-// --- HACKATHONS (MongoDB) ---
+// --- HACKATHONS ---
 export const fetchHackathons = async () => {
-    try {
-        const res = await apiClient.get('/hackathons');
-        return res.data;
-    } catch (error) {
-        console.error("Error fetching hackathons:", error);
-        return [];
-    }
+    await delay();
+    return activeHackathons;
 };
 
 export const applyForHackathon = async (hackathonId, applicationData) => {
-    const res = await apiClient.post(`/hackathons/${hackathonId}/apply`, applicationData);
-    return res.data;
+    await delay(500);
+    return { success: true };
 };
 
-// --- REELS (MongoDB) ---
+// --- REELS ---
 export const fetchReels = async () => {
-    const res = await apiClient.get('/reels');
-    if (!Array.isArray(res.data)) {
-        throw new Error(res.data.error || "Failed to fetch reels");
-    }
-    return res.data;
+    await delay();
+    return reelsData;
 };
 
 export const fetchUserReels = async (userId) => {
-    try {
-        const res = await apiClient.get(`/reels/user/${userId}`);
-        return res.data;
-    } catch (error) {
-        return [];
-    }
+    await delay();
+    return reelsData.filter(r => r.userId === userId);
 };
 
 export const likeReel = async (reelId, userId) => {
-    const res = await apiClient.put(`/reels/${reelId}/like`, { userId });
-    return res.data;
+    await delay(100);
+    return { success: true };
 };
 
 export const addReelComment = async (reelId, text, author, authorId) => {
-    const res = await apiClient.post(`/reels/${reelId}/comment`, { text, author, authorId });
-    return res.data;
+    await delay(100);
+    return { success: true };
 };
 
 export const uploadReel = async (url, description, user, song = null) => {
-    const res = await apiClient.post('/reels', {
+    await delay(1000);
+    const newReel = {
+        _id: `reel-${Date.now()}`,
         url,
         description,
         userId: user.uid,
         userDisplayName: user.displayName,
         userPhoto: user.photoURL,
-        song: song
-    });
-    return res.data;
+        song: song,
+        likes: [],
+        createdAt: new Date().toISOString()
+    };
+    reelsData.unshift(newReel);
+    return newReel;
 };
 
 // --- AUTH (EDU Verification) ---
 export const requestEduVerification = async (uid, collegeEmail) => {
-    const res = await apiClient.post('/auth/request-verification', { uid, collegeEmail });
-    return res.data;
+    await delay(1000);
+    return { success: true, message: "Verification link sent to your email." };
 };
 
 export const verifyOtp = async (uid, otp) => {
-    const res = await apiClient.post('/auth/verify-otp', { uid, otp });
-    return res.data;
+    await delay(1000);
+    if (otp === "123456") {
+        return { success: true, user: { ...currentUserProfile, eduVerified: true } };
+    }
+    return { success: false, message: "Invalid code. Please check your email." };
 };

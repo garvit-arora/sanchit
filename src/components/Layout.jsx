@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, PlaySquare, Briefcase, MessageSquare, Menu, User, Shield, Trophy, X, User as UserIcon } from 'lucide-react';
+import { Home, PlaySquare, Briefcase, MessageSquare, Menu, User, Shield, Trophy, X, User as UserIcon, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from './UserAvatar';
@@ -45,6 +45,8 @@ export default function Layout({ children }) {
 
                     <nav className="flex-1 space-y-4 mb-6 overflow-y-auto pr-2 scrollbar-hide">
                         <SidebarLink to="/feed" icon={Home} label="Feed" />
+                        <SidebarLink to="/tutor" icon={BookOpen} label="AI Tutor" />
+
                         <SidebarLink to="/forum" icon={MessageSquare} label="Forum" />
                         <SidebarLink to="/reels" icon={PlaySquare} label="Reels" />
                         <SidebarLink to="/leaderboard" icon={Trophy} label="Rankings" />
@@ -119,6 +121,7 @@ export default function Layout({ children }) {
                             </div>
                             <nav className="space-y-2 flex-1 overflow-y-auto">
                                 <SidebarLink to="/feed" icon={Home} label="Feed" />
+                                <SidebarLink to="/tutor" icon={BookOpen} label="AI Tutor" />
                                 <SidebarLink to="/forum" icon={MessageSquare} label="Forum" />
                                 <SidebarLink to="/reels" icon={PlaySquare} label="Reels" />
                                 <SidebarLink to="/leaderboard" icon={Trophy} label="Rankings" />

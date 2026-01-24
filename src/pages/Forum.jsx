@@ -15,6 +15,7 @@ const Comment = ({ comment, threadId, currentUser, queryClient }) => {
         e.stopPropagation();
         navigate('/chat', { state: { activeChatUser: { uid: comment.authorId, displayName: comment.author } } });
     };
+
     const [replyText, setReplyText] = useState('');
 
     const replyMutation = useMutation({
@@ -105,6 +106,7 @@ const Comment = ({ comment, threadId, currentUser, queryClient }) => {
             )}
         </div>
     );
+
 };
 
 const ForumPost = ({ post, onVote, currentUser }) => {
@@ -118,6 +120,7 @@ const ForumPost = ({ post, onVote, currentUser }) => {
         e.stopPropagation();
         navigate('/chat', { state: { activeChatUser: { uid: post.authorId, displayName: post.author } } });
     };
+
 
     const commentMutation = useMutation({
         mutationFn: () => addForumComment(post._id, commentText, currentUser.displayName, currentUser.uid),

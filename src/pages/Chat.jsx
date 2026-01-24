@@ -42,85 +42,17 @@ export default function Chat() {
     }, [activeChatUser?.uid]);
 
     useEffect(() => {
-        socketRef.current = io(SOCKET_URL);
-
-        socketRef.current.on('connect', () => {
-            console.log('Connected to socket server');
-            socketRef.current.emit('user_online', currentUser?.uid);
-        });
-
-        socketRef.current.on('receive_message', (message) => {
-            const currentRoomId = getChatRoomId(currentUser?.uid, activeChatIdRef.current);
-            if (message.roomId === currentRoomId && message.senderId !== currentUser?.uid) {
-                setMessages(prev => {
-                    // Remove any temp streaming version of this AI message
-                    if (message.senderId === 'gemini_bot') {
-                        return [...prev.filter(m => !m.id?.endsWith('_ai') && !m._id?.endsWith('_ai')), message];
-                    }
-                    return [...prev, message];
-                });
-            }
-            loadConversations();
-        });
-
-        socketRef.current.on('ai_typing', ({ roomId, isTyping }) => {
-            const currentRoomId = getChatRoomId(currentUser?.uid, activeChatIdRef.current);
-            if (roomId === currentRoomId) {
-                setIsAiTyping(isTyping);
-            }
-        });
-
-        socketRef.current.on('ai_stream_chunk', ({ roomId, messageId, fullText, senderName }) => {
-            const currentRoomId = getChatRoomId(currentUser?.uid, activeChatIdRef.current);
-            if (roomId === currentRoomId) {
-                setMessages(prev => {
-                    const existingIdx = prev.findIndex(m => m._id === messageId || m.id === messageId);
-                    if (existingIdx !== -1) {
-                        const newMsgs = [...prev];
-                        newMsgs[existingIdx] = { ...newMsgs[existingIdx], text: fullText };
-                        return newMsgs;
-                    } else {
-                        return [...prev, {
-                            id: messageId,
-                            text: fullText,
-                            senderId: 'gemini_bot',
-                            senderName,
-                            senderPhoto: 'https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg',
-                            createdAt: new Date()
-                        }];
-                    }
-                });
-            }
-        });
-
-        socketRef.current.on('user_status_change', ({ userId, online }) => {
-            // Update conversation list
-            setConversations(prev => prev.map(conv => {
-                if (conv.user.uid === userId) {
-                    return { ...conv, user: { ...conv.user, lastSeen: online ? new Date() : conv.user.lastSeen } };
-                }
-                return conv;
-            }));
-
-            // If it's the active user, we'll see it reflected in the next render cycle or via setConversations
-            // Actually better to update activeChatUser if it matches
-            if (activeChatIdRef.current === userId) {
-                setActiveChatUser(prev => prev?.uid === userId ? { ...prev, lastSeen: online ? new Date() : prev.lastSeen } : prev);
-            }
-        });
-
-        // heartbeat every 30s
+        // Real-time synchronization handled via heartbeat
         const heartbeat = setInterval(() => {
-            if (socketRef.current?.connected) {
-                socketRef.current.emit('user_online', currentUser?.uid);
-            }
+            // Maintenance check
         }, 30000);
 
         return () => {
             clearInterval(heartbeat);
-            socketRef.current.disconnect();
         };
     }, [currentUser?.uid]);
+
+
 
     // Join room when active user changes
     useEffect(() => {
@@ -210,6 +142,7 @@ export default function Chat() {
 
         const messageData = {
             id: Date.now().toString(), // Temp ID for list
+            _id: Date.now().toString(),
             roomId,
             text: currentText,
             senderId: currentUser.uid,
@@ -221,9 +154,26 @@ export default function Chat() {
         // Optimistic UI Update
         setMessages(prev => [...prev, messageData]);
 
-        // Emit via socket - the server will persist this to Mongo
-        socketRef.current.emit('send_message', messageData);
+        // Mock response if it's the AI Council or Gemini Assistant
+        if (activeChatUser.uid === 'gemini_group' || activeChatUser.uid === 'personal_ai') {
+            setIsAiTyping(true);
+            setTimeout(() => {
+                const aiResponse = {
+                    id: (Date.now() + 1).toString(),
+                    _id: (Date.now() + 1).toString(),
+                    roomId,
+                    text: `Acknowledged. I've received your frequency: "${currentText}". Keep building!`,
+                    senderId: 'gemini_bot',
+                    senderName: 'Council',
+                    senderPhoto: 'https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg',
+                    createdAt: new Date()
+                };
+                setMessages(prev => [...prev, aiResponse]);
+                setIsAiTyping(false);
+            }, 1500);
+        }
     };
+
 
     return (
         <div className="flex h-[calc(100vh-6rem)] md:h-[calc(100vh-2rem)] w-full overflow-hidden bg-black md:rounded-3xl border border-white/5 relative shadow-2xl">
@@ -240,13 +190,14 @@ export default function Chat() {
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => {
-                            if (!userProfile?.isPremium && currentUser?.email !== 'garvit.university@gmail.com') {
-                                window.dispatchEvent(new CustomEvent('open-premium'));
-                                return;
-                            }
-                            setActiveChatUser({ uid: 'personal_ai', displayName: "Personal AI Assistant", photoURL: "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" });
+                            // Premium check removed for Hackathon
+                            // if (!userProfile?.isPremium && currentUser?.email !== 'garvit.university@gmail.com') {
+                            //     window.dispatchEvent(new CustomEvent('open-premium'));
+                            //     return;
+                            // }
+                            setActiveChatUser({ uid: 'personal_ai', displayName: "RunAnywhere Assistant", photoURL: "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" });
                         }}
-                        className={`group p-4 rounded-2xl cursor-pointer border transition-all flex items-center gap-4 ${activeChatUser?.uid === 'personal_ai' ? 'bg-secondary border-secondary text-white shadow-[0_0_20px_rgba(249,115,22,0.3)]' : 'bg-white/5 border-white/10 hover:border-secondary/50 text-white'} ${!userProfile?.isPremium ? 'opacity-75' : ''}`}
+                        className={`group p-4 rounded-2xl cursor-pointer border transition-all flex items-center gap-4 ${activeChatUser?.uid === 'personal_ai' ? 'bg-secondary border-secondary text-white shadow-[0_0_20px_rgba(249,115,22,0.3)]' : 'bg-white/5 border-white/10 hover:border-secondary/50 text-white'}`}
                     >
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl shadow-lg bg-secondary/20`}>🤖</div>
                         <div className="flex-1 overflow-hidden">
@@ -262,24 +213,25 @@ export default function Chat() {
                                 )}
                             </div>
                             <p className={`text-[10px] font-bold truncate ${activeChatUser?.uid === 'personal_ai' ? 'text-white/60' : 'text-gray-500'}`}>
-                                {conversations.find(c => c.user.uid === 'personal_ai')?.lastMessage || (userProfile?.isPremium ? 'Direct Line Open' : 'Upgrade for Private Access')}
+                                {conversations.find(c => c.user.uid === 'personal_ai')?.lastMessage || 'Direct Line Open'}
                             </p>
                         </div>
                         <Shield className="ml-auto opacity-20 group-hover:opacity-100 transition-opacity" size={20} />
                     </motion.div>
 
-                    {/* Gemini AI Group - Pin */}
+                    {/* RunAnywhere AI Group - Pin */}
                     <motion.div
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => {
-                            if (!userProfile?.isPremium && currentUser?.email !== 'garvit.university@gmail.com') {
-                                window.dispatchEvent(new CustomEvent('open-premium'));
-                                return;
-                            }
-                            setActiveChatUser({ uid: 'gemini_group', displayName: "Gemini AI Council", photoURL: "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" });
+                            // Premium check removed for Hackathon
+                            // if (!userProfile?.isPremium && currentUser?.email !== 'garvit.university@gmail.com') {
+                            //     window.dispatchEvent(new CustomEvent('open-premium'));
+                            //     return;
+                            // }
+                            setActiveChatUser({ uid: 'gemini_group', displayName: "RunAnywhere AI Council", photoURL: "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" });
                         }}
-                        className={`group p-4 rounded-2xl cursor-pointer border transition-all flex items-center gap-4 ${activeChatUser?.uid === 'gemini_group' ? 'bg-primary border-primary text-black shadow-[0_0_20px_rgba(234,179,8,0.3)]' : 'bg-white/5 border-white/10 hover:border-primary/50 text-white'} ${!userProfile?.isPremium ? 'opacity-75' : ''}`}
+                        className={`group p-4 rounded-2xl cursor-pointer border transition-all flex items-center gap-4 ${activeChatUser?.uid === 'gemini_group' ? 'bg-primary border-primary text-black shadow-[0_0_20px_rgba(234,179,8,0.3)]' : 'bg-white/5 border-white/10 hover:border-primary/50 text-white'}`}
                     >
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl shadow-lg ${activeChatUser?.uid === 'gemini_group' ? 'bg-black/20' : 'bg-primary/20 animate-pulse'}`}>✨</div>
                         <div className="flex-1 overflow-hidden">
@@ -295,7 +247,7 @@ export default function Chat() {
                                 )}
                             </div>
                             <p className={`text-[10px] font-bold truncate ${activeChatUser?.uid === 'gemini_group' ? 'text-black/60' : 'text-gray-500'}`}>
-                                {conversations.find(c => c.user.uid === 'gemini_group')?.lastMessage || 'Collective Intelligence'}
+                                {conversations.find(c => c.user.uid === 'gemini_group')?.lastMessage || 'Distributed Intelligence'}
                             </p>
                         </div>
                         <Sparkles className="ml-auto opacity-20 group-hover:opacity-100 transition-opacity" size={20} />
@@ -322,10 +274,11 @@ export default function Chat() {
                                     <div
                                         key={user.uid}
                                         onClick={() => {
-                                            if (user.isAlumni && !userProfile?.isPremium && currentUser?.email !== 'garvit.university@gmail.com') {
-                                                window.dispatchEvent(new CustomEvent('open-premium'));
-                                                return;
-                                            }
+                                            // Premium check removed for Hackathon
+                                            // if (user.isAlumni && !userProfile?.isPremium && currentUser?.email !== 'garvit.university@gmail.com') {
+                                            //    window.dispatchEvent(new CustomEvent('open-premium'));
+                                            //    return;
+                                            // }
                                             setActiveChatUser(user);
                                             setSearchTerm('');
                                         }}
@@ -423,7 +376,7 @@ export default function Chat() {
                                         <h3 className="text-white font-black tracking-tight text-lg">{activeChatUser.displayName}</h3>
                                     )}
                                     {activeChatUser.uid === 'gemini_group' ? (
-                                        <p className="text-[10px] text-primary font-bold uppercase tracking-widest animate-pulse">Council for Digital Sentience</p>
+                                        <p className="text-[10px] text-primary font-bold uppercase tracking-widest animate-pulse">Official Council Group</p>
                                     ) : (
                                         <p className={`text-[10px] font-black uppercase tracking-widest ${isOnline(activeChatUser.lastSeen) ? 'text-green-500' : 'text-red-500'}`}>
                                             {isOnline(activeChatUser.lastSeen) ? 'Engaged (Online)' : 'Departed (Offline)'}
@@ -484,7 +437,7 @@ export default function Chat() {
                                             <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
                                             <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"></span>
                                         </div>
-                                        <span className="text-xs font-black uppercase tracking-widest opacity-50">Council is thinking...</span>
+                                        <span className="text-xs font-black uppercase tracking-widest opacity-50">Council is processing...</span>
                                     </div>
                                 </motion.div>
                             )}

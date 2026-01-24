@@ -14,7 +14,7 @@ export default function PremiumModal() {
     if (!isOpen) return null;
 
     const premiumFeatures = [
-        { icon: <Brain size={16} />, text: "Personal Gemini AI Co-pilot" },
+        { icon: <Brain size={16} />, text: "RunAnywhere AI Co-pilot" },
         { icon: <MessageCircle size={16} />, text: "AI Council Access" },
         { icon: <Star size={16} />, text: "Alumni Direct Access" },
         { icon: <Rocket size={16} />, text: "1:1 Mentorship" },

@@ -1,48 +1,59 @@
-import apiClient from './apiClient';
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { verifiedUsers, initialConversations } from '../initialData';
+
+// Helper to simulate network latency
+const delay = (ms = 500) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Search Users for Chat
 export const searchUsers = async (searchTerm) => {
-    try {
-        const res = await apiClient.get(`/users/search?q=${searchTerm}`);
-        return res.data;
-    } catch (e) {
-        return [];
-    }
+    await delay();
+    if (!searchTerm) return [];
+    return verifiedUsers.filter(u =>
+        u.displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        u.username?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 };
 
 // Fetch all conversations for a user
 export const fetchConversations = async (userId) => {
-    try {
-        const res = await apiClient.get(`/chat/conversations/${userId}`);
-        return res.data;
-    } catch (e) {
-        return [];
-    }
+    await delay();
+    return initialConversations;
 };
 
 // Create or Get Chat Room
 export const getChatRoomId = (myUid, otherUid) => {
-    if (otherUid === 'gemini_group') return 'community_ai_group'; // Force AI group ID
-    if (otherUid === 'personal_ai') return `ai_personal_${myUid}`; // Personal private AI
+    if (otherUid === 'gemini_group') return 'community_ai_group';
+    if (otherUid === 'personal_ai') return `ai_personal_${myUid}`;
     const sortedIds = [myUid, otherUid].sort().join("_");
     return sortedIds;
 };
 
-// Send Message (Mongo)
+// Send Message
 export const sendMessage = async (roomId, text, user) => {
-    const res = await apiClient.post('/chat', {
-        roomId,
+    await delay(100);
+    return {
+        _id: `msg-${Date.now()}`,
         text,
         senderId: user.uid,
         senderName: user.displayName,
-        senderPhoto: user.photoURL
-    });
-    return res.data;
+        senderPhoto: user.photoURL,
+        createdAt: new Date().toISOString()
+    };
 };
 
-// Get Messages (Mongo)
+// Get Messages
 export const fetchMessages = async (roomId) => {
-    const res = await apiClient.get(`/chat/${roomId}`);
-    return res.data;
+    await delay();
+    // Return empty history for new vibes in prototype
+    if (roomId.includes('ai')) {
+        return [
+            {
+                _id: 'm1',
+                text: "Session initiated. How can I assist with your build today?",
+                senderId: 'gemini_bot',
+                senderName: 'Council',
+                createdAt: new Date(Date.now() - 3600000).toISOString()
+            }
+        ];
+    }
+    return [];
 };

@@ -9,6 +9,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/AuthContext';
 import AuthGuard from './components/AuthGuard';
 import Chat from './pages/Chat';
+import Tutor from './pages/Tutor';
+
 import Reels from './pages/Reels';
 import Leaderboard from './pages/Leaderboard';
 import Profile from './pages/Profile';
@@ -20,6 +22,7 @@ import AdminLogin from './pages/AdminLogin';
 import NotFound from './pages/NotFound';
 import Hackathons from './pages/Hackathons';
 import PremiumModal from './components/PremiumModal';
+import InstallPWA from './components/InstallPWA';
 
 const queryClient = new QueryClient();
 
@@ -54,6 +57,8 @@ export default function App() {
                     <Route path="/forum" element={<Forum />} />
                     <Route path="/reels" element={<Reels />} />
                     <Route path="/chat" element={<Chat />} />
+                    <Route path="/tutor" element={<Tutor />} />
+
                     <Route path="/opportunities" element={<Opportunities />} />
                     <Route path="/hackathons" element={<Hackathons />} />
                     <Route path="/profile" element={<Profile />} />
@@ -69,6 +74,7 @@ export default function App() {
             {/* 404 Catch All */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <InstallPWA />
         </BrowserRouter>
       </AuthProvider>
     </QueryClientProvider>

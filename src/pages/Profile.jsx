@@ -361,7 +361,7 @@ export default function Profile() {
                         ) : (
                             <button
                                 onClick={() => {
-                                    if (profile.isAlumni && !userProfile?.isPremium && currentUser?.email !== 'garvit.university@gmail.com') {
+                                    if (profile.isAlumni && !myProfile?.isPremium) {
                                         window.dispatchEvent(new CustomEvent('open-premium'));
                                         return;
                                     }
@@ -371,9 +371,11 @@ export default function Profile() {
                             >
                                 <MessageSquare size={18} />
                                 {profile.isAlumni ? "DM Alumni" : "Message"}
-                                {profile.isAlumni && !userProfile?.isPremium && <Zap size={14} className="ml-1 fill-black" />}
+                                {profile.isAlumni && !myProfile?.isPremium && <Zap size={14} className="ml-1 fill-black" />}
                             </button>
                         )}
+
+
                     </div>
                 </div>
 
@@ -393,6 +395,18 @@ export default function Profile() {
                         <div className="flex flex-wrap gap-3">
                             {profile.skills?.map(skill => <Badge key={skill} label={skill} emoji="⚡" />)}
                         </div>
+
+                        {!profile.isVerified && isOwner && (
+                            <div className="mt-8 p-6 bg-primary/10 border border-primary/20 rounded-3xl flex items-center justify-between gap-6">
+                                <div>
+                                    <h4 className="text-white font-black text-lg">Verify your EDU Frequencies</h4>
+                                    <p className="text-gray-400 text-sm">Secure your node on the grid to unlock posting and verified badges.</p>
+                                </div>
+                                <Link to="/verify-edu" className="bg-primary text-black px-8 py-3 rounded-2xl font-black hover:scale-105 transition-all shadow-xl shadow-primary/20 whitespace-nowrap">
+                                    VERIFY NOW
+                                </Link>
+                            </div>
+                        )}
                     </div>
 
                     <div className="space-y-4">

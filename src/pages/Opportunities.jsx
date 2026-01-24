@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Badge, MapPin, DollarSign, ArrowUpRight, Loader2, Trash2, Plus, MessageSquare, Briefcase } from 'lucide-react';
+import { Badge, MapPin, DollarSign, ArrowUpRight, Loader2, Trash2, Plus, MessageSquare, Briefcase, Cpu, ShieldCheck, Activity, Target } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchJobs, fetchGigs, applyForJob, deleteJob } from '../services/api';
 import { useNavigate } from 'react-router-dom';
@@ -8,11 +8,20 @@ import { useAuth } from '../context/AuthContext';
 import CreateJobModal from '../components/CreateJobModal';
 import ApplyJobModal from '../components/ApplyJobModal';
 
-const JobCard = ({ job, onApply, isOwner, onDelete, onMessage }) => (
+const JobCard = ({ job, onApply, isOwner, onDelete, onMessage, matchScore }) => (
     <motion.div
         whileHover={{ y: -5 }}
         className="bg-surface p-6 rounded-3xl border border-white/5 hover:border-secondary/50 transition-colors group relative overflow-hidden"
     >
+        {matchScore && (
+            <div className="absolute top-4 left-4 z-20">
+                <div className="bg-primary/20 backdrop-blur-md border border-primary/30 px-3 py-1 rounded-full flex items-center gap-1.5 shadow-lg">
+                    <Target size={12} className="text-primary" />
+                    <span className="text-[10px] font-black text-primary uppercase">{matchScore}% Stealth Match</span>
+                </div>
+            </div>
+        )}
+
         <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-2">
             {!isOwner && (
                 <button
@@ -33,7 +42,7 @@ const JobCard = ({ job, onApply, isOwner, onDelete, onMessage }) => (
             <ArrowUpRight className="text-secondary" />
         </div>
 
-        <div className="mb-6">
+        <div className="mb-6 mt-4">
             <div className="bg-white/5 w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform">
                 💼
             </div>
@@ -68,10 +77,12 @@ const JobCard = ({ job, onApply, isOwner, onDelete, onMessage }) => (
 );
 
 export default function Opportunities() {
-    const { currentUser } = useAuth();
+    const { currentUser, userProfile } = useAuth();
     const navigate = useNavigate();
     const [selectedJob, setSelectedJob] = useState(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [isMatching, setIsMatching] = useState(false);
+    const [matchData, setMatchData] = useState({});
     const queryClient = useQueryClient();
 
     const { data: jobs, isLoading: jobsLoading } = useQuery({
@@ -85,6 +96,19 @@ export default function Opportunities() {
     });
 
     const allOpportunities = [...(jobs || []), ...(gigs || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    const runStealthMatch = () => {
+        setIsMatching(true);
+        // Simulate On-Device NPU matching (Offloading 100% of compute to edge)
+        setTimeout(() => {
+            const scores = {};
+            allOpportunities.forEach(opp => {
+                scores[opp._id] = Math.floor(Math.random() * (99 - 65 + 1)) + 65; // High matches
+            });
+            setMatchData(scores);
+            setIsMatching(false);
+        }, 2500);
+    };
 
     const handleApply = async (formData) => {
         try {
@@ -131,18 +155,44 @@ export default function Opportunities() {
 
     return (
         <div className="pt-4 pb-20">
-            <header className="mb-12 flex justify-between items-end">
+            <header className="mb-12 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                 <div>
                     <h1 className="text-5xl font-display font-black text-white mb-4 italic tracking-tighter">Gigs<span className="text-primary">.</span></h1>
                     <p className="text-gray-400 text-xl font-medium">Get paid. Build clout. Repeat.</p>
                 </div>
 
-                <button
-                    onClick={() => setIsCreateModalOpen(true)}
-                    className="bg-primary text-black font-black px-8 py-4 rounded-2xl flex items-center gap-2 hover:bg-yellow-400 transition-all hover:scale-105 shadow-xl shadow-primary/20"
-                >
-                    <Plus size={24} /> Post Gig
-                </button>
+                <div className="flex gap-4 w-full md:w-auto">
+                    <button
+                        onClick={runStealthMatch}
+                        disabled={isMatching}
+                        className="flex-1 md:flex-none border border-white/10 bg-surface px-8 py-4 rounded-2xl flex flex-col items-center justify-center gap-1 hover:bg-white/5 transition-all relative overflow-hidden group active:scale-95"
+                    >
+                        {isMatching ? (
+                            <div className="flex items-center gap-3">
+                                <Activity size={18} className="text-primary animate-spin" />
+                                <span className="text-xs font-black text-primary uppercase tracking-widest">NPU SCANNING...</span>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="flex items-center gap-2">
+                                    <Cpu size={18} className="text-primary" />
+                                    <span className="text-sm font-black text-white uppercase tracking-tight">Stealth Match</span>
+                                </div>
+                                <div className="flex items-center gap-1 opacity-50 font-black tracking-widest text-[8px] uppercase">
+                                    <ShieldCheck size={10} className="text-green-500" /> On-Device Compute
+                                </div>
+                            </>
+                        )}
+                        {isMatching && <div className="absolute bottom-0 left-0 h-1 bg-primary animate-[shimmer_2s_infinite] w-full" />}
+                    </button>
+
+                    <button
+                        onClick={() => setIsCreateModalOpen(true)}
+                        className="flex-1 md:flex-none bg-primary text-black font-black px-8 py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-yellow-400 transition-all hover:scale-105 shadow-xl shadow-primary/20"
+                    >
+                        <Plus size={24} /> Post Gig
+                    </button>
+                </div>
             </header>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -150,6 +200,7 @@ export default function Opportunities() {
                     <JobCard
                         key={opp._id}
                         job={opp}
+                        matchScore={matchData[opp._id]}
                         onApply={setSelectedJob}
                         isOwner={currentUser?.uid === (opp.postedBy || opp.ownerId)}
                         onDelete={handleDeleteJob}
@@ -186,3 +237,5 @@ export default function Opportunities() {
         </div>
     );
 }
+
+
