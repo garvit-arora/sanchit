@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MapPin, Link as LinkIcon, Calendar, Edit3, Award, Code, Terminal, LogOut, ShieldCheck, Trophy, MessageSquare, X, Heart, Pause, Play, Zap } from 'lucide-react';
+import { MapPin, Link as LinkIcon, Calendar, Edit3, Award, Code, Terminal, LogOut, ShieldCheck, Trophy, MessageSquare, X, Heart, Pause, Play, Zap, ImagePlus, Loader2, Trash2 } from 'lucide-react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import EditProfileModal from '../components/EditProfileModal';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchUserPosts, fetchUserReels, fetchUserThreads, deleteForumThread, fetchUserProfile, likeReel, addReelComment } from '../services/api';
+import { fetchUserPosts, fetchUserReels, fetchUserThreads, deleteForumThread, fetchUserProfile, likeReel, addReelComment, fetchFeed } from '../services/api';
 import UserAvatar from '../components/UserAvatar';
+import { notify } from '../utils/notify';
 
 const StatCard = ({ label, value, icon: Icon, color }) => (
     <div className="bg-surface border border-white/5 p-4 rounded-2xl flex items-center gap-4">
@@ -208,6 +209,9 @@ export default function Profile() {
     const [selectedPost, setSelectedPost] = useState(null);
     const [selectedReel, setSelectedReel] = useState(null);
     const [selectedThread, setSelectedThread] = useState(null);
+    const [storyViewer, setStoryViewer] = useState(null);
+    const [isStoryUploading, setIsStoryUploading] = useState(false);
+    const storyInputRef = useRef(null);
 
     // Determine target user ID (URL param or current user)
     const targetUid = uid || currentUser?.uid;
@@ -258,15 +262,22 @@ export default function Profile() {
         enabled: !!targetUid
     });
 
+    const { data: feedPosts } = useQuery({
+        queryKey: ['feed'],
+        queryFn: fetchFeed,
+        enabled: isOwner
+    });
+
     // Fetch LeetCode Stats
+    const leetcodeUser = profile?.integrations?.leetcode || profile?.leetcodeUsername;
     const { data: leetcodeStats } = useQuery({
-        queryKey: ['leetcode-stats', profile?.leetcodeUsername],
+        queryKey: ['leetcode-stats', leetcodeUser],
         queryFn: async () => {
-            if (!profile?.leetcodeUsername) return null;
-            const res = await axios.get(`https://leetcode-api-faisalshohag.vercel.app/${profile.leetcodeUsername}`);
+            if (!leetcodeUser) return null;
+            const res = await axios.get(`https://leetcode-api-faisalshohag.vercel.app/${leetcodeUser}`);
             return res.data;
         },
-        enabled: !!profile?.leetcodeUsername,
+        enabled: !!leetcodeUser,
         retry: 1
     });
 
@@ -284,16 +295,46 @@ export default function Profile() {
             if (refreshProfile) await refreshProfile();
             window.location.reload();
         } catch (e) {
-            alert(e.response?.data?.error || "Update Failed");
+            notify(e.response?.data?.error || "Update Failed", "error");
         }
     };
+
+    const handleStoryUpload = async (file) => {
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            notify("Please upload an image file.", "warning");
+            return;
+        }
+        setIsStoryUploading(true);
+        const reader = new FileReader();
+        reader.onload = async () => {
+            await handleUpdateProfile({
+                storyImage: reader.result,
+                storyUpdatedAt: new Date().toISOString()
+            });
+            setIsStoryUploading(false);
+        };
+        reader.onerror = () => {
+            setIsStoryUploading(false);
+            notify("Failed to read image.", "error");
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleStoryRemove = async () => {
+        await handleUpdateProfile({ storyImage: null, storyUpdatedAt: null });
+    };
+
+    const savedPosts = (feedPosts || []).filter(post => Array.isArray(post.bookmarks) && currentUser?.uid && post.bookmarks.includes(currentUser.uid));
+    const savedReels = Array.isArray(profile?.savedReels) ? profile.savedReels : [];
+    const savedThreads = Array.isArray(profile?.savedThreads) ? profile.savedThreads : [];
 
     const handleDeleteThread = async (threadId) => {
         if (window.confirm("Delete this thread?")) {
             try {
                 await deleteForumThread(threadId);
                 window.location.reload();
-            } catch (err) { alert("Failed"); }
+            } catch (err) { notify("Failed", "error"); }
         }
     };
 
@@ -320,12 +361,17 @@ export default function Profile() {
                 {/* Header */}
                 <div className="flex flex-col md:flex-row items-end md:items-center justify-between gap-6 mb-8">
                     <div className="flex items-end gap-6">
-                        <UserAvatar
-                            src={profile.photoURL}
-                            name={profile.displayName}
-                            size="xl"
-                            className="border-4 border-black ring-4 ring-primary/20 shadow-2xl"
-                        />
+                        <button
+                            onClick={() => profile?.storyImage && setStoryViewer(profile)}
+                            className={`${profile?.storyImage ? 'p-1 rounded-full bg-gradient-to-r from-primary via-secondary to-blue-500' : ''}`}
+                        >
+                            <UserAvatar
+                                src={profile.photoURL}
+                                name={profile.displayName}
+                                size="xl"
+                                className="border-4 border-black ring-4 ring-primary/20 shadow-2xl"
+                            />
+                        </button>
                         <div className="mb-2">
                             <h1 className="text-3xl md:text-4xl font-display font-black text-white flex items-center gap-2">
                                 {profile.displayName}
@@ -345,6 +391,33 @@ export default function Profile() {
                         )}
                         {isOwner ? (
                             <>
+                                <input
+                                    ref={storyInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        e.target.value = '';
+                                        handleStoryUpload(file);
+                                    }}
+                                />
+                                <button
+                                    onClick={() => storyInputRef.current?.click()}
+                                    disabled={isStoryUploading}
+                                    className="bg-black/30 border border-white/10 text-white px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-white/5 transition-colors disabled:opacity-60"
+                                >
+                                    {isStoryUploading ? <Loader2 size={18} className="animate-spin" /> : <ImagePlus size={18} />}
+                                    {profile?.storyImage ? "Update Story" : "Add Story"}
+                                </button>
+                                {profile?.storyImage && (
+                                    <button
+                                        onClick={handleStoryRemove}
+                                        className="bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-red-500/20 transition-colors"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => setIsEditOpen(true)}
                                     className="bg-surface border border-white/10 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-white/5 transition-colors"
@@ -361,17 +434,12 @@ export default function Profile() {
                         ) : (
                             <button
                                 onClick={() => {
-                                    if (profile.isAlumni && !myProfile?.isPremium) {
-                                        window.dispatchEvent(new CustomEvent('open-premium'));
-                                        return;
-                                    }
                                     navigate('/chat', { state: { activeChatUser: profile } });
                                 }}
                                 className="bg-primary text-black px-8 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/20"
                             >
                                 <MessageSquare size={18} />
                                 {profile.isAlumni ? "DM Alumni" : "Message"}
-                                {profile.isAlumni && !myProfile?.isPremium && <Zap size={14} className="ml-1 fill-black" />}
                             </button>
                         )}
 
@@ -396,17 +464,6 @@ export default function Profile() {
                             {profile.skills?.map(skill => <Badge key={skill} label={skill} emoji="⚡" />)}
                         </div>
 
-                        {!profile.isVerified && isOwner && (
-                            <div className="mt-8 p-6 bg-primary/10 border border-primary/20 rounded-3xl flex items-center justify-between gap-6">
-                                <div>
-                                    <h4 className="text-white font-black text-lg">Verify your EDU Frequencies</h4>
-                                    <p className="text-gray-400 text-sm">Secure your node on the grid to unlock posting and verified badges.</p>
-                                </div>
-                                <Link to="/verify-edu" className="bg-primary text-black px-8 py-3 rounded-2xl font-black hover:scale-105 transition-all shadow-xl shadow-primary/20 whitespace-nowrap">
-                                    VERIFY NOW
-                                </Link>
-                            </div>
-                        )}
                     </div>
 
                     <div className="space-y-4">
@@ -429,7 +486,7 @@ export default function Profile() {
 
                 {/* Tabs */}
                 <div className="flex gap-8 border-b border-white/10 mb-8">
-                    {['posts', 'reels', 'threads'].map(tab => (
+                    {(isOwner ? ['posts', 'reels', 'threads', 'saved'] : ['posts', 'reels', 'threads']).map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -513,6 +570,87 @@ export default function Profile() {
                     </div>
                 )}
 
+                {activeTab === 'saved' && isOwner && (
+                    <div className="space-y-10">
+                        {savedPosts.length > 0 && (
+                            <div>
+                                <h3 className="text-sm font-black uppercase tracking-widest text-gray-500 mb-4">Saved Posts</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {savedPosts.map(post => (
+                                        <div
+                                            key={post._id}
+                                            onClick={() => setSelectedPost(post)}
+                                            className="bg-surface border border-white/5 rounded-xl p-4 hover:border-primary/50 hover:bg-white/[0.02] transition-all group cursor-pointer"
+                                        >
+                                            <p className="text-white line-clamp-3 mb-4 font-medium">{post.content}</p>
+                                            <div className="flex justify-between items-center text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+                                                <span>{new Date(post.createdAt).toLocaleDateString()}</span>
+                                                <span className="bg-white/5 px-2 py-1 rounded-md group-hover:bg-primary/20 group-hover:text-primary transition-colors">{post.likes?.length || 0} 🔥</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {savedReels.length > 0 && (
+                            <div>
+                                <h3 className="text-sm font-black uppercase tracking-widest text-gray-500 mb-4">Saved Reels</h3>
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                    {savedReels.map(reel => (
+                                        <div
+                                            key={reel._id || reel.id || reel.url}
+                                            onClick={() => setSelectedReel(reel)}
+                                            className="aspect-[9/16] relative rounded-2xl overflow-hidden group bg-surface border border-white/5 cursor-pointer"
+                                        >
+                                            <video
+                                                src={reel.url}
+                                                className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity"
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                                            <div className="absolute bottom-3 left-3 flex items-center gap-2 text-white font-bold text-xs">
+                                                <Play size={12} fill="currentColor" />
+                                                {reel.likes?.length || 0}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {savedThreads.length > 0 && (
+                            <div>
+                                <h3 className="text-sm font-black uppercase tracking-widest text-gray-500 mb-4">Saved Threads</h3>
+                                <div className="space-y-4">
+                                    {savedThreads.map(thread => (
+                                        <div key={thread._id || thread.id} className="bg-surface border border-white/10 rounded-2xl p-6 hover:border-primary/30 transition-all group relative">
+                                            <div className="cursor-pointer" onClick={() => setSelectedThread(thread)}>
+                                                <h3 className="text-xl font-bold text-white mb-2 hover:text-primary transition-colors">{thread.title}</h3>
+                                                <div className="flex gap-2">
+                                                    {thread.tags?.map(tag => (
+                                                        <span key={tag} className="text-[10px] font-black uppercase tracking-wider bg-white/5 px-2 py-0.5 rounded text-gray-500">#{tag}</span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <p className="text-gray-400 line-clamp-2 mb-4 text-sm cursor-pointer" onClick={() => setSelectedThread(thread)}>{thread.content}</p>
+                                            <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-widest text-gray-500">
+                                                <span>{thread.upvotes?.length || 0} Upvotes</span>
+                                                <span>{thread.comments?.length || 0} Comments</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {savedPosts.length === 0 && savedReels.length === 0 && savedThreads.length === 0 && (
+                            <div className="text-center py-16 text-gray-500 font-medium">
+                                No saved items yet.
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* Modals */}
                 <AnimatePresence>
                     {selectedReel && <ReelModal reel={selectedReel} onClose={() => setSelectedReel(null)} currentUser={currentUser} />}
@@ -553,6 +691,34 @@ export default function Profile() {
                     )}
                 </AnimatePresence>
             </div>
+
+            <AnimatePresence>
+                {storyViewer && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="relative w-full max-w-2xl"
+                        >
+                            <button
+                                onClick={() => setStoryViewer(null)}
+                                className="absolute -top-4 -right-4 z-10 bg-black/60 border border-white/10 text-white p-2 rounded-full"
+                            >
+                                <X size={18} />
+                            </button>
+                            <div className="bg-black border border-white/10 rounded-3xl overflow-hidden">
+                                <img src={storyViewer.storyImage} alt="Story" className="w-full h-[70vh] object-contain bg-black" />
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

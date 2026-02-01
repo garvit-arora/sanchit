@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Download, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { notify } from '../utils/notify';
 
 const InstallPWA = () => {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -31,7 +32,7 @@ const InstallPWA = () => {
     const handleInstallClick = async () => {
         if (!deferredPrompt) {
             if (isIOS) {
-                alert("To install on iOS: Tap the Share button and select 'Add to Home Screen'");
+                notify("To install on iOS: Tap Share and select Add to Home Screen", "info");
             }
             return;
         }

@@ -3,10 +3,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Badge, MapPin, DollarSign, ArrowUpRight, Loader2, Trash2, Plus, MessageSquare, Briefcase, Cpu, ShieldCheck, Activity, Target } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchJobs, fetchGigs, applyForJob, deleteJob } from '../services/api';
+import { aiService } from '../services/aiService';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import CreateJobModal from '../components/CreateJobModal';
 import ApplyJobModal from '../components/ApplyJobModal';
+import { notify } from '../utils/notify';
 
 const JobCard = ({ job, onApply, isOwner, onDelete, onMessage, matchScore }) => (
     <motion.div
@@ -97,17 +99,59 @@ export default function Opportunities() {
 
     const allOpportunities = [...(jobs || []), ...(gigs || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-    const runStealthMatch = () => {
+    const runStealthMatch = async () => {
+        if (!userProfile?.resumeText) {
+            notify("Please upload your resume in your profile to use Stealth Match.", "warning");
+            // Open Edit Profile Modal if possible, or navigate to profile
+            // For now, just alert is fine as per instruction "ask to upload resume first"
+            return;
+        }
+
         setIsMatching(true);
-        // Simulate On-Device NPU matching (Offloading 100% of compute to edge)
-        setTimeout(() => {
+        setMatchData({});
+
+        try {
             const scores = {};
-            allOpportunities.forEach(opp => {
-                scores[opp._id] = Math.floor(Math.random() * (99 - 65 + 1)) + 65; // High matches
-            });
+            // Process jobs in batches or one by one
+            for (const job of allOpportunities) {
+                // Skip if we already matched this session? No, re-match is better.
+                
+                const prompt = `
+You are an expert HR AI. Rate the match between this candidate and the job on a scale of 0-100.
+Return ONLY the number.
+
+Candidate Resume:
+${userProfile.resumeText.substring(0, 2000)}
+
+Job Description:
+Title: ${job.title}
+Skills: ${job.skills?.join(', ')}
+Description: ${job.description || job.title}
+
+Match Score (0-100):`;
+
+                try {
+                    // Use a shorter system prompt for speed
+                    const response = await aiService.chat([
+                        { role: 'system', content: 'You are a precise job matching engine. Output only the score number.' },
+                        { role: 'user', content: prompt }
+                    ]);
+                    
+                    const score = parseInt(response.match(/\d+/)?.[0] || "0");
+                    scores[job._id] = score;
+                } catch (err) {
+                    console.error("Match error for job", job._id, err);
+                    scores[job._id] = 0;
+                }
+            }
+            
             setMatchData(scores);
+        } catch (error) {
+            console.error("Stealth Match Failed:", error);
+            notify("Stealth Match failed. Ensure AI model is loaded.", "error");
+        } finally {
             setIsMatching(false);
-        }, 2500);
+        }
     };
 
     const handleApply = async (formData) => {
@@ -118,11 +162,11 @@ export default function Opportunities() {
                 userEmail: currentUser.email,
                 ...formData
             });
-            alert("Applied successfully!");
+            notify("Applied successfully!", "success");
             setSelectedJob(null);
         } catch (e) {
             console.error(e);
-            alert(e.response?.data?.error || "Failed to apply");
+            notify(e.response?.data?.error || "Failed to apply", "error");
             throw e;
         }
     };
@@ -134,7 +178,7 @@ export default function Opportunities() {
                 queryClient.invalidateQueries(['jobs']);
                 queryClient.invalidateQueries(['gigs']);
             } catch (e) {
-                alert("Failed to delete");
+                notify("Failed to delete", "error");
             }
         }
     };

@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Flame } from 'lucide-react';
+import { Flame, RefreshCw } from 'lucide-react';
 import gsap from 'gsap';
+import apiClient from '../services/apiClient';
+import { notify } from '../utils/notify';
 
 const RankRow = ({ rank, name, solved, department, isUser }) => {
     return (
@@ -24,26 +26,38 @@ export default function Leaderboard() {
     const [filter, setFilter] = useState('Global');
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const { currentUser } = useAuth();
 
-    useEffect(() => {
-        const fetchLeaderboard = async () => {
-            setLoading(true);
-            try {
-                const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-                const query = filter === 'Global' ? '' : `?filter=${filter}`;
-                const res = await fetch(`${API_BASE}/leaderboard${query}`);
-                const data = await res.json();
-                setStudents(data);
-            } catch (err) {
-                console.error("Failed to fetch leaderboard", err);
-            } finally {
-                setLoading(false);
-            }
-        };
+    const fetchLeaderboard = async () => {
+        setLoading(true);
+        try {
+            const query = filter === 'Global' ? '' : `?filter=${filter}`;
+            const res = await apiClient.get(`/leaderboard${query}`);
+            setStudents(res.data);
+        } catch (err) {
+            console.error("Failed to fetch leaderboard", err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
+    useEffect(() => {
         fetchLeaderboard();
     }, [filter]);
+
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await apiClient.post('/leaderboard/refresh');
+            await fetchLeaderboard();
+        } catch (error) {
+            console.error("Failed to refresh leaderboard:", error);
+            notify("Failed to refresh data. Please try again.", "error");
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     useEffect(() => {
         if (!loading && listRef.current) {
@@ -57,8 +71,20 @@ export default function Leaderboard() {
     return (
         <div className="pt-4 pb-20">
             <header className="mb-8">
-                <h1 className="text-4xl font-display font-black text-white">Rankings</h1>
-                <p className="text-gray-400">See who's coding the most.</p>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-4xl font-display font-black text-white">Rankings</h1>
+                        <p className="text-gray-400">See who's coding the most.</p>
+                    </div>
+                    <button 
+                        onClick={handleRefresh} 
+                        disabled={refreshing}
+                        className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors disabled:opacity-50"
+                        title="Refresh LeetCode Stats"
+                    >
+                        <RefreshCw size={20} className={refreshing ? "animate-spin text-primary" : "text-gray-400"} />
+                    </button>
+                </div>
 
                 <div className="flex gap-2 mt-6 overflow-x-auto pb-2 scrollbar-hide">
                     {['Global', 'CSE', 'IT', 'ECE'].map((f) => (

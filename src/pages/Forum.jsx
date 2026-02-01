@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { fetchForum, createForumPost, voteForumThread, addForumComment, replyForumComment, deleteForumThread, reportForumThread, deleteForumComment } from '../services/api';
-import { MessageSquare, ArrowBigUp, ArrowBigDown, Hash, Plus, X, Send, Reply, Trash2, ShieldAlert } from 'lucide-react';
+import { MessageSquare, ArrowBigUp, ArrowBigDown, Hash, Plus, X, Send, Reply, Trash2, ShieldAlert, Repeat } from 'lucide-react';
+import { notify } from '../utils/notify';
 
 const Comment = ({ comment, threadId, currentUser, queryClient }) => {
     const navigate = useNavigate();
@@ -50,7 +51,7 @@ const Comment = ({ comment, threadId, currentUser, queryClient }) => {
                                     if (window.confirm("Delete comment?")) deleteForumComment(threadId, comment._id).then(() => queryClient.invalidateQueries(['forum']))
                                 }} className="text-gray-600 hover:text-red-500"><Trash2 size={12} /></button>
                             ) : (
-                                <button onClick={() => alert("Reported.")} className="text-gray-600 hover:text-yellow-500"><ShieldAlert size={12} /></button>
+                                <button onClick={() => notify("Reported.", "info")} className="text-gray-600 hover:text-yellow-500"><ShieldAlert size={12} /></button>
                             )}
                         </div>
                     </div>
@@ -141,7 +142,23 @@ const ForumPost = ({ post, onVote, currentUser }) => {
         const reason = window.prompt("Why are you reporting this thread?");
         if (reason) {
             await reportForumThread(post._id, currentUser.uid, reason); // Ensure API exists
-            alert("Reported to moderators.");
+            notify("Reported to moderators.", "info");
+        }
+    };
+
+    const handleRepost = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!currentUser?.uid || !post?._id) return;
+        try {
+            const existingTags = Array.isArray(post.tags) ? post.tags : [];
+            const tags = Array.from(new Set([...existingTags, 'repost']));
+            const title = `Repost: ${post.title}`;
+            const content = `${post.content}\n\nReposted from ${post.author}`;
+            await createForumPost(title, content, tags, currentUser);
+            queryClient.invalidateQueries(['forum']);
+        } catch (error) {
+            notify("Failed to repost thread", "error");
         }
     };
 
@@ -182,9 +199,14 @@ const ForumPost = ({ post, onVote, currentUser }) => {
                                     <X size={16} />
                                 </button>
                             ) : (
-                                <button onClick={handleReport} className="text-gray-500 hover:text-yellow-500 p-1">
-                                    <ShieldAlert size={16} />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={handleRepost} className="text-gray-500 hover:text-primary p-1">
+                                        <Repeat size={16} />
+                                    </button>
+                                    <button onClick={handleReport} className="text-gray-500 hover:text-yellow-500 p-1">
+                                        <ShieldAlert size={16} />
+                                    </button>
+                                </div>
                             )}
                         </div>
                     </div>
@@ -269,14 +291,15 @@ const CreateThreadModal = ({ isOpen, onClose }) => {
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async () => {
-        if (!title || !content) return;
+        if (!title || !content || !currentUser?.uid) return;
         setIsLoading(true);
         try {
-            await createForumPost(title, content, tags.split(',').map(t => t.trim()), currentUser);
+            const tagList = tags.split(',').map(t => t.trim()).filter(Boolean);
+            await createForumPost(title, content, tagList, currentUser);
             queryClient.invalidateQueries(['forum']);
             onClose();
         } catch (e) {
-            alert("Failed to post thread");
+            notify("Failed to post thread", "error");
         }
         setIsLoading(false);
     };
@@ -333,6 +356,7 @@ export default function Forum() {
     const { currentUser } = useAuth();
 
     const handleVote = async (threadId, type) => {
+        if (!currentUser?.uid) return;
         try {
             await voteForumThread(threadId, currentUser.uid, type);
             queryClient.invalidateQueries(['forum']);

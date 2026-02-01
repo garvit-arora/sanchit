@@ -1,59 +1,72 @@
-import { verifiedUsers, initialConversations } from '../initialData';
-
-// Helper to simulate network latency
-const delay = (ms = 500) => new Promise(resolve => setTimeout(resolve, ms));
+import apiClient from './apiClient';
 
 // Search Users for Chat
 export const searchUsers = async (searchTerm) => {
-    await delay();
     if (!searchTerm) return [];
-    return verifiedUsers.filter(u =>
-        u.displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        u.username?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    try {
+        const { data } = await apiClient.get(`/users/search?q=${searchTerm}`);
+        return data;
+    } catch (e) {
+        console.error("Search failed:", e);
+        return [];
+    }
 };
 
 // Fetch all conversations for a user
 export const fetchConversations = async (userId) => {
-    await delay();
-    return initialConversations;
+    try {
+        const { data } = await apiClient.get(`/chat/conversations/${userId}`);
+        return data;
+    } catch (e) {
+        console.error("Fetch conversations failed:", e);
+        return [];
+    }
 };
 
 // Create or Get Chat Room
 export const getChatRoomId = (myUid, otherUid) => {
     if (otherUid === 'gemini_group') return 'community_ai_group';
     if (otherUid === 'personal_ai') return `ai_personal_${myUid}`;
+    if (otherUid === 'tutor_ai') return `ai_tutor_${myUid}`;
     const sortedIds = [myUid, otherUid].sort().join("_");
     return sortedIds;
 };
 
 // Send Message
 export const sendMessage = async (roomId, text, user) => {
-    await delay(100);
-    return {
-        _id: `msg-${Date.now()}`,
-        text,
-        senderId: user.uid,
-        senderName: user.displayName,
-        senderPhoto: user.photoURL,
-        createdAt: new Date().toISOString()
-    };
+    try {
+        const { data } = await apiClient.post('/chat', {
+            roomId,
+            text,
+            senderId: user.uid,
+            senderName: user.displayName,
+            senderPhoto: user.photoURL,
+            createdAt: new Date()
+        });
+        return data;
+    } catch (e) {
+        console.error("Send message failed:", e);
+        throw e;
+    }
 };
 
 // Get Messages
 export const fetchMessages = async (roomId) => {
-    await delay();
-    // Return empty history for new vibes in prototype
-    if (roomId.includes('ai')) {
-        return [
-            {
-                _id: 'm1',
-                text: "Session initiated. How can I assist with your build today?",
-                senderId: 'gemini_bot',
-                senderName: 'Council',
-                createdAt: new Date(Date.now() - 3600000).toISOString()
-            }
-        ];
+    try {
+        const { data } = await apiClient.get(`/chat/${roomId}`);
+        return data;
+    } catch (e) {
+        console.error("Fetch messages failed:", e);
+        return [];
     }
-    return [];
+};
+
+// Clear Chat History
+export const clearChatHistory = async (roomId) => {
+    try {
+        await apiClient.delete(`/chat/${roomId}`);
+    } catch (e) {
+        console.error("Clear chat failed:", e);
+        throw e;
+    }
 };

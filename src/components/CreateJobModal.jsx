@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { X, Send, Briefcase, MapPin, DollarSign } from 'lucide-react';
 import apiClient from '../services/apiClient';
 import { useAuth } from '../context/AuthContext';
+import { notify } from '../utils/notify';
 
 export default function CreateJobModal({
     isOpen,
@@ -53,7 +54,7 @@ export default function CreateJobModal({
             onClose();
         } catch (err) {
             console.error("Creation error:", err);
-            alert(err.response?.data?.error || "Failed to create");
+            notify(err.response?.data?.error || "Failed to create", "error");
         } finally {
             setIsLoading(false);
         }

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Zap, ShieldCheck } from 'lucide-react';
+import { notify } from '../utils/notify';
 
 export default function Login() {
   const { login, currentUser } = useAuth();
@@ -21,7 +22,19 @@ export default function Login() {
     } catch (error) {
       console.error("Login Failed Code:", error.code);
       console.error("Login Failed Message:", error.message);
-      alert(`Login Failed: ${error.message}`); // Show alert to user
+      
+      let errorMessage = `Login Failed: ${error.message}`;
+      if (error.code === 'auth/popup-closed-by-user') {
+        errorMessage = "Login cancelled. Please try again.";
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = "Network error. Please check your connection.";
+      } else if (error.code === 'auth/unauthorized-domain') {
+        errorMessage = "Domain not authorized. Please check Firebase Console settings.";
+      } else if (error.code === 'auth/popup-blocked') {
+        errorMessage = "Popup blocked. Please allow popups for this site.";
+      }
+      
+      notify(errorMessage, "error");
     }
   };
 

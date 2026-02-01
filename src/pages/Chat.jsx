@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import { searchUsers, getChatRoomId, sendMessage, fetchMessages, fetchConversations } from '../services/chatService';
-import { Search, Send, User as UserIcon, MoreVertical, Phone, Video, ArrowLeft, MessageSquare, Sparkles, Shield, Star, Zap } from 'lucide-react';
+import { searchUsers, getChatRoomId, sendMessage, fetchMessages, fetchConversations, clearChatHistory } from '../services/chatService';
+import { aiService } from '../services/aiService';
+import { Search, Send, User as UserIcon, MoreVertical, Phone, Video, ArrowLeft, MessageSquare, Sparkles, Shield, Star, Zap, Trash2 } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import { io } from 'socket.io-client';
 import { useLocation, Link } from 'react-router-dom';
+import AIDataConsentBanner from '../components/AIDataConsentBanner';
+import { mlClient } from '../services/apiClient';
+import { notify } from '../utils/notify';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
@@ -33,8 +37,28 @@ export default function Chat() {
     const [inputText, setInputText] = useState('');
     const [isVanishMode, setIsVanishMode] = useState(false);
     const [isAiTyping, setIsAiTyping] = useState(false);
+    const [aiProgress, setAiProgress] = useState(null);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
     const messagesEndRef = useRef(null);
     const activeChatIdRef = useRef(activeChatUser?.uid);
+    const [consentChoice, setConsentChoice] = useState(() => localStorage.getItem('ai_data_consent_personal'));
+    const [showConsent, setShowConsent] = useState(consentChoice === null);
+
+    // Clear Chat Handler
+    const handleClearChat = async () => {
+        if (!activeChatUser) return;
+        if (!window.confirm("Are you sure you want to clear this chat history? This action cannot be undone.")) return;
+
+        try {
+            const roomId = getChatRoomId(currentUser?.uid, activeChatUser.uid);
+            await clearChatHistory(roomId);
+            setMessages([]);
+            setIsMenuOpen(false);
+        } catch (error) {
+            console.error("Failed to clear chat:", error);
+            notify("Failed to clear chat history.", "error");
+        }
+    };
 
     // Keep ref sync with state
     useEffect(() => {
@@ -75,6 +99,14 @@ export default function Chat() {
             localStorage.setItem('last_active_chat_user', JSON.stringify(activeChatUser));
         }
     }, [activeChatUser]);
+
+    useEffect(() => {
+        if (activeChatUser?.uid === 'personal_ai') {
+            setShowConsent(consentChoice === null);
+        } else {
+            setShowConsent(false);
+        }
+    }, [activeChatUser?.uid, consentChoice]);
 
     // Scroll to bottom
     useEffect(() => {
@@ -133,16 +165,28 @@ export default function Chat() {
         </div>
     );
 
+    const handleConsentDecision = (value) => {
+        setConsentChoice(value);
+        setShowConsent(false);
+        mlClient.post('/consent', {
+            userId: currentUser?.uid || 'anonymous',
+            feature: 'personal_assistant',
+            consent: value === 'opt_in'
+        }).catch(() => {});
+    };
+
     const handleSend = async () => {
         if (!inputText.trim() || !activeChatUser) return;
+        if (activeChatUser.uid === 'personal_ai' && consentChoice === null) {
+            setShowConsent(true);
+            return;
+        }
         const roomId = getChatRoomId(currentUser?.uid, activeChatUser.uid);
 
         const currentText = inputText;
         setInputText('');
 
         const messageData = {
-            id: Date.now().toString(), // Temp ID for list
-            _id: Date.now().toString(),
             roomId,
             text: currentText,
             senderId: currentUser.uid,
@@ -152,25 +196,120 @@ export default function Chat() {
         };
 
         // Optimistic UI Update
-        setMessages(prev => [...prev, messageData]);
+        const tempId = Date.now().toString();
+        setMessages(prev => [...prev, { ...messageData, id: tempId, _id: tempId }]);
 
-        // Mock response if it's the AI Council or Gemini Assistant
-        if (activeChatUser.uid === 'gemini_group' || activeChatUser.uid === 'personal_ai') {
+        // Persist Message
+        try {
+            await sendMessage(roomId, currentText, currentUser);
+        } catch (e) {
+            console.error("Failed to persist message:", e);
+        }
+        if (activeChatUser.uid === 'personal_ai' && consentChoice === 'opt_in') {
+            mlClient.post('/ingest', {
+                userId: currentUser?.uid || 'anonymous',
+                feature: 'personal_assistant',
+                role: 'user',
+                content: currentText,
+                consent: true
+            }).catch(() => {});
+        }
+
+        // AI Response Logic
+        if (activeChatUser.uid === 'personal_ai') {
             setIsAiTyping(true);
-            setTimeout(() => {
-                const aiResponse = {
-                    id: (Date.now() + 1).toString(),
-                    _id: (Date.now() + 1).toString(),
+            
+            // Prepare history
+            const history = messages.map(m => ({
+                role: m.senderId === 'gemini_bot' ? 'assistant' : 'user',
+                content: m.text
+            }));
+            history.push({ role: 'user', content: currentText });
+
+            // Setup progress tracking
+            aiService.setProgressCallback((report) => {
+                setAiProgress(report);
+            });
+
+            const aiMessageId = (Date.now() + 1).toString();
+            
+            // Create placeholder for streaming
+            const placeholderMsg = {
+                id: aiMessageId,
+                _id: aiMessageId,
+                roomId,
+                text: "",
+                senderId: 'gemini_bot',
+                senderName: 'RunAnywhere AI',
+                senderPhoto: 'https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg',
+                createdAt: new Date()
+            };
+            
+            // We append placeholder immediately so user sees "AI is typing" then the empty message starts filling
+            // But usually we want to keep "AI is typing" until first token.
+            // Let's NOT append placeholder yet, or append it but with empty text.
+            // If we append it, we should clear isAiTyping? 
+            // Better UX: Show "AI is typing" until first chunk arrives, then show message and append chunks.
+            
+            try {
+                let firstChunkReceived = false;
+                let accumulatedText = "";
+
+                await aiService.chat(history, (chunk) => {
+                    if (!firstChunkReceived) {
+                        firstChunkReceived = true;
+                        setIsAiTyping(false);
+                        setAiProgress(null);
+                        setMessages(prev => [...prev, placeholderMsg]);
+                    }
+                    
+                    accumulatedText += chunk;
+                    setMessages(prev => prev.map(m => 
+                        m.id === aiMessageId ? { ...m, text: accumulatedText } : m
+                    ));
+                });
+                
+                if (!firstChunkReceived) {
+                     // In case of empty response or fast finish without chunks (unlikely with stream)
+                     setIsAiTyping(false);
+                     setAiProgress(null);
+                } else {
+                    // Persist AI Message
+                    try {
+                        await sendMessage(roomId, accumulatedText, {
+                            uid: 'personal_ai',
+                            displayName: 'AI Tutor',
+                            photoURL: 'https://cdn-icons-png.flaticon.com/512/4712/4712027.png'
+                        });
+                    } catch (e) {
+                        console.error("Failed to save AI message:", e);
+                    }
+                    if (consentChoice === 'opt_in') {
+                        mlClient.post('/ingest', {
+                            userId: currentUser?.uid || 'anonymous',
+                            feature: 'personal_assistant',
+                            role: 'assistant',
+                            content: accumulatedText,
+                            consent: true
+                        }).catch(() => {});
+                    }
+                }
+
+            } catch (error) {
+                console.error("AI Chat Error:", error);
+                setIsAiTyping(false);
+                setAiProgress(null);
+                setMessages(prev => [...prev, {
+                    id: Date.now().toString(),
+                    _id: Date.now().toString(),
                     roomId,
-                    text: `Acknowledged. I've received your frequency: "${currentText}". Keep building!`,
+                    text: "Connection disrupted. Local interference detected.",
                     senderId: 'gemini_bot',
-                    senderName: 'Council',
+                    senderName: 'RunAnywhere AI',
                     senderPhoto: 'https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg',
                     createdAt: new Date()
-                };
-                setMessages(prev => [...prev, aiResponse]);
-                setIsAiTyping(false);
-            }, 1500);
+                }]);
+            }
         }
     };
 
@@ -190,12 +329,7 @@ export default function Chat() {
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => {
-                            // Premium check removed for Hackathon
-                            // if (!userProfile?.isPremium && currentUser?.email !== 'garvit.university@gmail.com') {
-                            //     window.dispatchEvent(new CustomEvent('open-premium'));
-                            //     return;
-                            // }
-                            setActiveChatUser({ uid: 'personal_ai', displayName: "RunAnywhere Assistant", photoURL: "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" });
+                            setActiveChatUser({ uid: 'personal_ai', displayName: "RunAnywhere Tutor", photoURL: "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" });
                         }}
                         className={`group p-4 rounded-2xl cursor-pointer border transition-all flex items-center gap-4 ${activeChatUser?.uid === 'personal_ai' ? 'bg-secondary border-secondary text-white shadow-[0_0_20px_rgba(249,115,22,0.3)]' : 'bg-white/5 border-white/10 hover:border-secondary/50 text-white'}`}
                     >
@@ -203,8 +337,7 @@ export default function Chat() {
                         <div className="flex-1 overflow-hidden">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <h4 className="font-black tracking-tight">Personal AI</h4>
-                                    {!userProfile?.isPremium && <Zap size={14} className="text-secondary fill-secondary" />}
+                                    <h4 className="font-black tracking-tight">AI Tutor</h4>
                                 </div>
                                 {conversations.find(c => c.user.uid === 'personal_ai') && (
                                     <span className="text-[10px] opacity-40 font-bold">
@@ -213,44 +346,10 @@ export default function Chat() {
                                 )}
                             </div>
                             <p className={`text-[10px] font-bold truncate ${activeChatUser?.uid === 'personal_ai' ? 'text-white/60' : 'text-gray-500'}`}>
-                                {conversations.find(c => c.user.uid === 'personal_ai')?.lastMessage || 'Direct Line Open'}
+                                {conversations.find(c => c.user.uid === 'personal_ai')?.lastMessage || 'Ready to help'}
                             </p>
                         </div>
                         <Shield className="ml-auto opacity-20 group-hover:opacity-100 transition-opacity" size={20} />
-                    </motion.div>
-
-                    {/* RunAnywhere AI Group - Pin */}
-                    <motion.div
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => {
-                            // Premium check removed for Hackathon
-                            // if (!userProfile?.isPremium && currentUser?.email !== 'garvit.university@gmail.com') {
-                            //     window.dispatchEvent(new CustomEvent('open-premium'));
-                            //     return;
-                            // }
-                            setActiveChatUser({ uid: 'gemini_group', displayName: "RunAnywhere AI Council", photoURL: "https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" });
-                        }}
-                        className={`group p-4 rounded-2xl cursor-pointer border transition-all flex items-center gap-4 ${activeChatUser?.uid === 'gemini_group' ? 'bg-primary border-primary text-black shadow-[0_0_20px_rgba(234,179,8,0.3)]' : 'bg-white/5 border-white/10 hover:border-primary/50 text-white'}`}
-                    >
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl shadow-lg ${activeChatUser?.uid === 'gemini_group' ? 'bg-black/20' : 'bg-primary/20 animate-pulse'}`}>✨</div>
-                        <div className="flex-1 overflow-hidden">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <h4 className="font-black tracking-tight">AI Council</h4>
-                                    {!userProfile?.isPremium && <Zap size={14} className="text-primary fill-primary" />}
-                                </div>
-                                {conversations.find(c => c.user.uid === 'gemini_group') && (
-                                    <span className="text-[10px] opacity-40 font-bold">
-                                        {new Date(conversations.find(c => c.user.uid === 'gemini_group').lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                )}
-                            </div>
-                            <p className={`text-[10px] font-bold truncate ${activeChatUser?.uid === 'gemini_group' ? 'text-black/60' : 'text-gray-500'}`}>
-                                {conversations.find(c => c.user.uid === 'gemini_group')?.lastMessage || 'Distributed Intelligence'}
-                            </p>
-                        </div>
-                        <Sparkles className="ml-auto opacity-20 group-hover:opacity-100 transition-opacity" size={20} />
                     </motion.div>
 
                     <div className="relative group">
@@ -282,7 +381,7 @@ export default function Chat() {
                                             setActiveChatUser(user);
                                             setSearchTerm('');
                                         }}
-                                        className={`flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl cursor-pointer transition-all border border-transparent hover:border-white/5 group ${user.isAlumni && !userProfile?.isPremium ? 'opacity-75' : ''}`}
+                                        className="flex items-center gap-4 p-4 hover:bg-white/5 rounded-2xl cursor-pointer transition-all border border-transparent hover:border-white/5 group"
                                     >
                                         <div className="relative">
                                             <UserAvatar src={user.photoURL} name={user.displayName} size="md" className="border-2 border-white/10" />
@@ -310,13 +409,9 @@ export default function Chat() {
                                 <div
                                     key={conv.user.uid}
                                     onClick={() => {
-                                        if (conv.user.isAlumni && !userProfile?.isPremium && currentUser?.email !== 'garvit.university@gmail.com') {
-                                            window.dispatchEvent(new CustomEvent('open-premium'));
-                                            return;
-                                        }
                                         setActiveChatUser(conv.user);
                                     }}
-                                    className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all border group ${activeChatUser?.uid === conv.user.uid ? 'bg-white/10 border-white/20' : 'border-transparent hover:bg-white/5 hover:border-white/5'} ${conv.user.isAlumni && !userProfile?.isPremium ? 'opacity-75' : ''}`}
+                                    className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all border group ${activeChatUser?.uid === conv.user.uid ? 'bg-white/10 border-white/20' : 'border-transparent hover:bg-white/5 hover:border-white/5'}`}
                                 >
                                     <div className="relative">
                                         <UserAvatar src={conv.user.photoURL} name={conv.user.displayName} size="md" className="border-2 border-white/10" />
@@ -363,8 +458,11 @@ export default function Chat() {
                                     ) : (
                                         <UserAvatar src={activeChatUser.photoURL} name={activeChatUser.displayName} size="md" className="border-2 border-white/10 shadow-lg" />
                                     )}
-                                    {activeChatUser.uid !== 'gemini_group' && (
+                                    {activeChatUser.uid !== 'gemini_group' && activeChatUser.uid !== 'personal_ai' && (
                                         <StatusDot online={isOnline(activeChatUser.lastSeen)} />
+                                    )}
+                                    {activeChatUser.uid === 'personal_ai' && (
+                                        <StatusDot online={true} />
                                     )}
                                 </div>
                                 <div>
@@ -377,6 +475,11 @@ export default function Chat() {
                                     )}
                                     {activeChatUser.uid === 'gemini_group' ? (
                                         <p className="text-[10px] text-primary font-bold uppercase tracking-widest animate-pulse">Official Council Group</p>
+                                    ) : activeChatUser.uid === 'personal_ai' ? (
+                                        <p className="text-[10px] text-green-500 font-black uppercase tracking-widest flex items-center gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"/> 
+                                            System Online
+                                        </p>
                                     ) : (
                                         <p className={`text-[10px] font-black uppercase tracking-widest ${isOnline(activeChatUser.lastSeen) ? 'text-green-500' : 'text-red-500'}`}>
                                             {isOnline(activeChatUser.lastSeen) ? 'Engaged (Online)' : 'Departed (Offline)'}
@@ -384,11 +487,22 @@ export default function Chat() {
                                     )}
                                 </div>
                             </div>
-                            <div className="flex gap-2">
-                                <button onClick={() => setIsVanishMode(!isVanishMode)} className={`p-3 rounded-2xl transition-all ${isVanishMode ? 'bg-primary text-black' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>
-                                    <UserIcon size={20} />
-                                </button>
-                                <button className="p-3 rounded-2xl text-gray-500 hover:text-white hover:bg-white/5 transition-all hidden md:block">
+                            <div className="flex gap-2 relative">
+                                {isMenuOpen && (
+                                    <div className="absolute top-12 right-0 bg-surface border border-white/10 rounded-xl shadow-2xl p-2 z-50 min-w-[160px] backdrop-blur-xl">
+                                        <button 
+                                            onClick={handleClearChat}
+                                            className="w-full flex items-center gap-2 p-3 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors text-sm font-medium"
+                                        >
+                                            <Trash2 size={16} />
+                                            Clear Chat
+                                        </button>
+                                    </div>
+                                )}
+                                <button 
+                                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                    className={`p-3 rounded-2xl transition-all ${isMenuOpen ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
+                                >
                                     <MoreVertical size={20} />
                                 </button>
                             </div>
@@ -425,7 +539,19 @@ export default function Chat() {
                                     <p className="text-sm font-bold uppercase tracking-widest">No frequencies yet</p>
                                 </div>
                             )}
-                            {isAiTyping && (
+                            {aiProgress && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="flex justify-center mb-4"
+                                >
+                                    <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-xl px-4 py-2 flex items-center gap-3">
+                                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                        <span className="text-xs font-medium text-gray-300">{aiProgress.text}</span>
+                                    </div>
+                                </motion.div>
+                            )}
+                            {isAiTyping && !aiProgress && (
                                 <motion.div
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
@@ -437,7 +563,7 @@ export default function Chat() {
                                             <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></span>
                                             <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce"></span>
                                         </div>
-                                        <span className="text-xs font-black uppercase tracking-widest opacity-50">Council is processing...</span>
+                                        <span className="text-xs font-black uppercase tracking-widest opacity-50">RunAnywhere AI is processing...</span>
                                     </div>
                                 </motion.div>
                             )}
@@ -447,7 +573,14 @@ export default function Chat() {
                         {/* Typing / Input Area */}
                         <div className="p-6 md:p-8 bg-black/60 backdrop-blur-2xl border-t border-white/10">
                             <div className="flex gap-4 max-w-5xl mx-auto">
-                                <div className="flex-1 relative group">
+                                <div className="flex-1 relative group space-y-4">
+                                    {activeChatUser.uid === 'personal_ai' && showConsent && (
+                                        <AIDataConsentBanner
+                                            consentKey="ai_data_consent_personal"
+                                            feature="Personal Assistant"
+                                            onDecision={handleConsentDecision}
+                                        />
+                                    )}
                                     <input
                                         className="w-full bg-white/5 border border-white/15 rounded-3xl px-6 md:px-8 py-4 md:py-5 text-white outline-none focus:border-primary focus:bg-white/10 transition-all shadow-2xl placeholder:text-gray-600 font-medium md:text-lg"
                                         placeholder="Broadcast a frequency..."
@@ -480,7 +613,7 @@ export default function Chat() {
                         </div>
                         <div className="space-y-3">
                             <h2 className="text-3xl md:text-5xl font-display font-black text-white italic tracking-tighter">Your Frequency Lounge<span className="text-primary">.</span></h2>
-                            <p className="text-gray-600 font-medium max-w-md mx-auto">Reconnect with your tribe, collaborate on insights, or consult the AI Council for digital wisdom.</p>
+                            <p className="text-gray-600 font-medium max-w-md mx-auto">Reconnect with your tribe, collaborate on insights, or consult the RunAnywhere AI for digital wisdom.</p>
                         </div>
                     </div>
                 )}

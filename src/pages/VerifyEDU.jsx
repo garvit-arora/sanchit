@@ -17,8 +17,8 @@ export default function VerifyEDU() {
     const handleRequest = async (e) => {
         e.preventDefault();
         setError('');
-        if (!email.toLowerCase().endsWith('.edu')) {
-            setError('Please enter a valid institution email ending in .edu');
+        if (!email.toLowerCase().endsWith('.edu.in')) {
+            setError('Please enter a valid institution email ending in .edu.in');
             return;
         }
 
@@ -82,7 +82,7 @@ export default function VerifyEDU() {
                                     <Mail className="text-gray-500" size={20} />
                                     <input
                                         type="email"
-                                        placeholder="college-email@university.edu"
+                                        placeholder="college-email@university.edu.in"
                                         className="bg-transparent text-white outline-none w-full font-medium"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}

@@ -1,239 +1,227 @@
-import { feedPosts, currentUserProfile, verifiedUsers, forumThreads, jobOpportunities, activeHackathons, reelsData, statsLeaderboard } from '../initialData';
-
-// Helper to simulate API delay
-const delay = (ms = 500) => new Promise(resolve => setTimeout(resolve, ms));
+import apiClient from './apiClient';
 
 // --- POSTS (Feed) ---
 export const fetchFeed = async () => {
-    await delay();
-    return feedPosts;
+    const response = await apiClient.get('/posts');
+    console.log('fetchFeed response:', response.data);
+    return response.data;
 };
 
 export const createPost = async (content, image, video, song, user) => {
-    await delay();
-    const newPost = {
-        _id: `post-${Date.now()}`,
+    const response = await apiClient.post('/posts', {
         content,
         image,
         video,
         song,
         author: user.displayName || 'Anonymous',
         authorId: user.uid,
-        authorPhoto: user.photoURL,
-        likes: [],
-        comments: [],
-        createdAt: new Date().toISOString()
-    };
-    feedPosts.unshift(newPost);
-    return newPost;
+        authorPhoto: user.photoURL
+    });
+    return response.data;
+};
+
+export const updatePost = async (postId, content, image, video, song) => {
+    const response = await apiClient.put(`/posts/${postId}`, {
+        content,
+        image,
+        video,
+        song
+    });
+    return response.data;
+};
+
+export const uploadPostMedia = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post('/posts/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
 };
 
 export const likePost = async (postId, userId) => {
-    await delay(100);
-    const post = feedPosts.find(p => (p._id || p.id) === postId);
-    if (post) {
-        if (!post.likes) post.likes = [];
-        const index = post.likes.indexOf(userId);
-        if (index > -1) post.likes.splice(index, 1);
-        else post.likes.push(userId);
-    }
-    return post;
+    const response = await apiClient.put(`/posts/${postId}/like`, { userId });
+    return response.data;
+};
+
+export const bookmarkPost = async (postId, userId) => {
+    const response = await apiClient.put(`/posts/${postId}/bookmark`, { userId });
+    return response.data;
 };
 
 export const addComment = async (postId, text, author) => {
-    await delay(100);
-    const post = feedPosts.find(p => (p._id || p.id) === postId);
-    if (post) {
-        if (!post.comments) post.comments = [];
-        post.comments.push({ author, text, createdAt: new Date().toISOString() });
-    }
-    return post;
+    const response = await apiClient.post(`/posts/${postId}/comment`, { text, author });
+    return response.data;
 };
 
 export const deletePost = async (postId) => {
-    await delay(200);
-    const index = feedPosts.findIndex(p => (p._id || p.id) === postId);
-    if (index > -1) feedPosts.splice(index, 1);
-    return { success: true };
+    const response = await apiClient.delete(`/posts/${postId}`);
+    return response.data;
 };
 
 export const reportPost = async (postId, reporterId, reason) => {
-    await delay(200);
-    return { success: true };
+    const response = await apiClient.post(`/posts/${postId}/report`, { reporterId, reason });
+    return response.data;
 };
 
 export const fetchUserPosts = async (userId) => {
-    await delay();
-    return feedPosts.filter(p => p.authorId === userId);
+    const response = await apiClient.get(`/posts/user/${userId}`);
+    return response.data;
 };
 
 // --- USER & LEETCODE ---
 export const fetchUserProfile = async (uid) => {
-    await delay();
-    if (uid === currentUserProfile.uid) return currentUserProfile;
-    return verifiedUsers.find(u => u.uid === uid) || currentUserProfile;
+    const response = await apiClient.get(`/users/${uid}`);
+    return response.data;
 };
 
 export const fetchLeetCodeStats = async (username) => {
-    await delay();
-    return {
-        ranking: 12543,
-        totalSolved: 450,
-        easy: 200, medium: 180, hard: 70
-    };
+    // Assuming backend syncs this, or we fetch from user profile
+    // If there's a specific endpoint for stats:
+    // const response = await apiClient.get(`/users/leetcode/${username}`);
+    // For now returning null or relying on user profile data
+    return null; 
 };
 
 // --- FORUM ---
 export const fetchForum = async () => {
-    await delay();
-    return forumThreads;
+    const response = await apiClient.get('/forum');
+    return response.data;
 };
 
 export const createForumPost = async (title, content, tags, user) => {
-    await delay();
-    const newThread = {
-        _id: `thread-${Date.now()}`,
+    const response = await apiClient.post('/forum', {
         title,
         content,
         tags,
-        author: user,
-        upvotes: [],
-        downvotes: [],
-        comments: [],
-        createdAt: new Date().toISOString()
-    };
-    forumThreads.unshift(newThread);
-    return newThread;
+        author: user.displayName || 'Anonymous',
+        authorId: user.uid
+    });
+    return response.data;
 };
 
 export const voteForumThread = async (threadId, userId, type) => {
-    await delay(100);
-    const thread = forumThreads.find(t => t._id === threadId);
-    if (thread) {
-        if (type === 'up') {
-            if (!thread.upvotes.includes(userId)) thread.upvotes.push(userId);
-        } else {
-            if (!thread.downvotes.includes(userId)) thread.downvotes.push(userId);
-        }
-    }
-    return thread;
+    const response = await apiClient.put(`/forum/${threadId}/vote`, { userId, type });
+    return response.data;
 };
 
 export const addForumComment = async (threadId, text, author, authorId) => {
-    await delay(100);
-    return { success: true };
+    const response = await apiClient.post(`/forum/${threadId}/comment`, { text, author, authorId });
+    return response.data;
 };
 
 export const replyForumComment = async (threadId, commentId, text, author, authorId) => {
-    await delay(100);
-    return { success: true };
+    const response = await apiClient.post(`/forum/${threadId}/comment/${commentId}/reply`, { text, author, authorId });
+    return response.data;
 };
 
 export const fetchUserThreads = async (userId) => {
-    await delay();
-    return forumThreads.filter(t => t.author?.uid === userId);
+    const response = await apiClient.get(`/forum/user/${userId}`);
+    return response.data;
 };
 
 export const deleteForumThread = async (threadId) => {
-    await delay(200);
-    return { success: true };
+    const response = await apiClient.delete(`/forum/${threadId}`);
+    return response.data;
 };
 
 export const updateForumThread = async (threadId, data) => {
-    await delay(200);
-    return { success: true };
+    const response = await apiClient.put(`/forum/${threadId}`, data);
+    return response.data;
 };
 
 export const deleteForumComment = async (threadId, commentId) => {
-    await delay(200);
-    return { success: true };
+    const response = await apiClient.delete(`/forum/${threadId}/comment/${commentId}`);
+    return response.data;
 };
 
 export const reportForumThread = async (threadId, reporterId, reason) => {
-    await delay(200);
-    return { success: true };
+    const response = await apiClient.post(`/forum/${threadId}/report`, { reporterId, reason });
+    return response.data;
 };
 
 // --- JOBS & OPPORTUNITIES ---
 export const fetchJobs = async () => {
-    await delay();
-    return jobOpportunities;
+    const response = await apiClient.get('/jobs');
+    return response.data;
 };
 
 export const fetchGigs = async () => {
-    await delay();
-    return jobOpportunities.filter(o => o.type === 'Gig');
+    const response = await apiClient.get('/gigs');
+    return response.data;
 };
 
 export const applyForJob = async (jobId, applicationData) => {
-    await delay(500);
-    return { success: true };
+    const response = await apiClient.post(`/jobs/${jobId}/apply`, applicationData);
+    return response.data;
 };
 
 export const deleteJob = async (jobId) => {
-    await delay(200);
-    return { success: true };
+    const response = await apiClient.delete(`/jobs/${jobId}`);
+    return response.data;
 };
 
 // --- HACKATHONS ---
 export const fetchHackathons = async () => {
-    await delay();
-    return activeHackathons;
+    const response = await apiClient.get('/hackathons');
+    return response.data;
 };
 
 export const applyForHackathon = async (hackathonId, applicationData) => {
-    await delay(500);
-    return { success: true };
+    const response = await apiClient.post(`/hackathons/${hackathonId}/apply`, applicationData);
+    return response.data;
 };
 
 // --- REELS ---
 export const fetchReels = async () => {
-    await delay();
-    return reelsData;
+    const response = await apiClient.get('/reels');
+    return response.data;
 };
 
 export const fetchUserReels = async (userId) => {
-    await delay();
-    return reelsData.filter(r => r.userId === userId);
+    const response = await apiClient.get(`/reels/user/${userId}`);
+    return response.data;
 };
 
 export const likeReel = async (reelId, userId) => {
-    await delay(100);
-    return { success: true };
+    const response = await apiClient.put(`/reels/${reelId}/like`, { userId });
+    return response.data;
 };
 
 export const addReelComment = async (reelId, text, author, authorId) => {
-    await delay(100);
-    return { success: true };
+    const response = await apiClient.post(`/reels/${reelId}/comment`, { text, author, authorId });
+    return response.data;
 };
 
 export const uploadReel = async (url, description, user, song = null) => {
-    await delay(1000);
-    const newReel = {
-        _id: `reel-${Date.now()}`,
+    const response = await apiClient.post('/reels', {
         url,
         description,
         userId: user.uid,
         userDisplayName: user.displayName,
         userPhoto: user.photoURL,
-        song: song,
-        likes: [],
-        createdAt: new Date().toISOString()
-    };
-    reelsData.unshift(newReel);
-    return newReel;
+        song
+    });
+    return response.data;
+};
+
+export const deleteReel = async (reelId) => {
+    const response = await apiClient.delete(`/reels/${reelId}`);
+    return response.data;
+};
+
+export const updateReel = async (reelId, description) => {
+    const response = await apiClient.put(`/reels/${reelId}`, { description });
+    return response.data;
 };
 
 // --- AUTH (EDU Verification) ---
 export const requestEduVerification = async (uid, collegeEmail) => {
-    await delay(1000);
-    return { success: true, message: "Verification link sent to your email." };
+    const response = await apiClient.post('/auth/verify-edu', { uid, collegeEmail });
+    return response.data;
 };
 
 export const verifyOtp = async (uid, otp) => {
-    await delay(1000);
-    if (otp === "123456") {
-        return { success: true, user: { ...currentUserProfile, eduVerified: true } };
-    }
-    return { success: false, message: "Invalid code. Please check your email." };
+    const response = await apiClient.post('/auth/verify-otp', { uid, otp });
+    return response.data;
 };

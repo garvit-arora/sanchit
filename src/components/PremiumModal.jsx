@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, Sparkles, Zap, Shield, Rocket, Brain, MessageCircle, Star } from 'lucide-react';
+import { notify } from '../utils/notify';
 
 export default function PremiumModal() {
     const [isOpen, setIsOpen] = useState(false);
@@ -15,7 +16,7 @@ export default function PremiumModal() {
 
     const premiumFeatures = [
         { icon: <Brain size={16} />, text: "RunAnywhere AI Co-pilot" },
-        { icon: <MessageCircle size={16} />, text: "AI Council Access" },
+        { icon: <MessageCircle size={16} />, text: "Unlimited AI Tutors" },
         { icon: <Star size={16} />, text: "Alumni Direct Access" },
         { icon: <Rocket size={16} />, text: "1:1 Mentorship" },
         { icon: <Shield size={16} />, text: "Verified Pro Badge" },
@@ -103,10 +104,10 @@ export default function PremiumModal() {
                                 <div className="flex items-center justify-between mb-3">
                                     <div>
                                         <div className="flex items-baseline gap-2">
-                                            <span className="text-2xl font-black text-white">₹99</span>
+                                            <span className="text-2xl font-black text-white">₹90</span>
                                             <span className="text-[10px] font-bold text-gray-600 line-through">₹499</span>
                                         </div>
-                                        <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Lifetime Access</p>
+                                        <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">/Month</p>
                                     </div>
                                     <span className="bg-primary/20 text-primary text-[8px] font-black px-2 py-0.5 rounded border border-primary/20">
                                         80% OFF
@@ -114,7 +115,7 @@ export default function PremiumModal() {
                                 </div>
 
                                 <button
-                                    onClick={() => alert("Payment Gateway Integration Coming Soon!")}
+                                    onClick={() => notify("Payment gateway integration coming soon!", "info")}
                                     className="w-full bg-primary text-black font-black py-3 rounded-xl flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-95 transition-all shadow-lg shadow-primary/10 group text-[11px]"
                                 >
                                     ACTIVATE PRO <Rocket size={14} className="group-hover:translate-x-1 transition-transform" />

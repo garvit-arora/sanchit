@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Zap, Shield, Globe, Terminal, UserCheck, Flame } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Zap, Camera } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import apiClient from '../services/apiClient';
 
 const GlitchText = ({ text }) => {
     return (
@@ -13,20 +15,34 @@ const GlitchText = ({ text }) => {
     );
 };
 
-const FeatureCard = ({ icon: Icon, title, desc }) => (
-    <motion.div
-        whileHover={{ y: -10 }}
-        className="bg-surface border border-white/5 p-8 rounded-3xl relative overflow-hidden group"
+const VR_COLLEGES = [
+    { name: 'IIT Delhi', query: 'IIT Delhi campus' },
+    { name: 'NSUT', query: 'Netaji Subhas University of Technology campus' },
+    { name: 'DTU', query: 'Delhi Technological University campus' },
+    { name: 'BITs Pilani', query: 'BITS Pilani campus' },
+    { name: 'VIT', query: 'Vellore Institute of Technology campus' },
+    { name: 'SRM', query: 'SRM Institute of Science and Technology campus' },
+    { name: 'BPIT', query: 'Bhagwan Parshuram Institute of Technology campus' },
+    { name: 'MAIT', query: 'Maharaja Agrasen Institute of Technology campus' },
+    { name: 'MSIT', query: 'Maharaja Surajmal Institute of Technology campus' },
+    { name: 'BVCOE', query: 'Bharati Vidyapeeth College of Engineering campus' }
+];
+
+const VRCard = ({ college, isActive, onSelect }) => (
+    <button
+        onClick={() => onSelect(college)}
+        className={`text-left w-full p-5 rounded-2xl border transition-all ${isActive ? 'border-primary bg-primary/10' : 'border-white/10 bg-surface hover:border-white/30'}`}
     >
-        <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Icon size={48} className="text-white/5 rotate-12" />
+        <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isActive ? 'bg-primary text-black' : 'bg-white/5 text-white'}`}>
+                <Camera size={18} />
+            </div>
+            <div>
+                <h3 className="font-black text-white">{college.name}</h3>
+                <p className="text-xs text-gray-500">360 campus walkthrough</p>
+            </div>
         </div>
-        <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mb-6 text-primary">
-            <Icon size={32} />
-        </div>
-        <h3 className="text-2xl font-display font-black text-white mb-2">{title}</h3>
-        <p className="text-gray-400 leading-relaxed">{desc}</p>
-    </motion.div>
+    </button>
 );
 
 const Step = ({ num, title, desc }) => (
@@ -43,13 +59,32 @@ const Step = ({ num, title, desc }) => (
 
 export default function Landing() {
     const navigate = useNavigate();
-    const [studentsOnline, setStudentsOnline] = useState(1420);
+    const { currentUser } = useAuth();
+    const [studentsOnline, setStudentsOnline] = useState(0);
+    const [selectedCollege, setSelectedCollege] = useState(VR_COLLEGES[0]);
 
     useEffect(() => {
-        const interval = setInterval(() => {
-            setStudentsOnline(prev => prev + Math.floor(Math.random() * 5) - 2);
-        }, 2000);
-        return () => clearInterval(interval);
+        if (currentUser) {
+            navigate('/feed');
+        }
+    }, [currentUser, navigate]);
+
+    useEffect(() => {
+        let isMounted = true;
+        const fetchOnline = async () => {
+            try {
+                const res = await apiClient.get('/users/online-count');
+                if (isMounted) setStudentsOnline(res.data?.count || 0);
+            } catch (error) {
+                if (isMounted) setStudentsOnline(0);
+            }
+        };
+        fetchOnline();
+        const interval = setInterval(fetchOnline, 15000);
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+        };
     }, []);
 
     return (
@@ -60,7 +95,9 @@ export default function Landing() {
 
             {/* Navbar */}
             <nav className="p-6 md:px-12 flex justify-between items-center z-50 sticky top-0 bg-background/80 backdrop-blur-md border-b border-white/5">
-                <h1 className="text-2xl font-bold font-display text-white">San<span className="text-primary">chit</span>.</h1>
+                <Link to="/feed" className="text-2xl font-bold font-display text-white hover:opacity-80 transition-opacity">
+                    San<span className="text-primary">chit</span>.
+                </Link>
                 <button
                     onClick={() => navigate('/login')}
                     className="px-6 py-2 border border-white/20 rounded-full text-white font-bold hover:bg-white/10 transition-all font-display"
@@ -70,7 +107,7 @@ export default function Landing() {
             </nav>
 
             {/* Hero Section */}
-            <header className="min-h-screen flex flex-col justify-center items-center text-center px-4 relative z-10 pt-20 pb-32">
+            <header className="min-h-[85vh] flex flex-col justify-center items-center text-center px-4 relative z-10 pt-10 pb-20">
                 <div className="mb-4 flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface border border-white/10">
                     <span className="relative flex h-3 w-3">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
@@ -82,12 +119,12 @@ export default function Landing() {
                 <GlitchText text="YOUR CAMPUS" />
                 <GlitchText text="IS ONLINE." />
 
-                <p className="max-w-2xl text-gray-400 text-xl md:text-2xl mt-8 font-medium leading-relaxed">
+                <p className="max-w-2xl text-gray-400 text-xl md:text-2xl mt-6 font-medium leading-relaxed">
                     The exclusive digital playground for engineers. <br />
                     <span className="text-white">Connect. Compete. Flex.</span>
                 </p>
 
-                <div className="flex flex-col md:flex-row gap-4 mt-12">
+                <div className="flex flex-col md:flex-row gap-4 mt-8">
                     <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -113,31 +150,53 @@ export default function Landing() {
                 </motion.div>
             </div>
 
-            {/* Features Grid */}
             <section className="max-w-7xl mx-auto px-4 py-20">
                 <div className="text-center mb-16">
-                    <h2 className="text-4xl md:text-6xl font-display font-black text-white mb-4">Why Sanchit?</h2>
+                    <h2 className="text-4xl md:text-6xl font-display font-black text-white mb-4">Campus 360 VR</h2>
                     <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-                        Traditional college apps are boring. We built the OS for your campus life that you actually want to use.
+                        Explore your college from every angle. Jump into a VR-like campus view before you even step inside.
                     </p>
+                    <div className="mt-6 inline-flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest text-gray-300">
+                        350+ campus nodes live
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <FeatureCard
-                        icon={Shield}
-                        title="Community Only"
-                        desc="No bots. No randoms. Join the exclusive network of engineers and coders."
-                    />
-                    <FeatureCard
-                        icon={Globe}
-                        title="Global Rankings"
-                        desc="Sync your LeetCode & GitHub. Compete on the leaderboard against students from IITs, NITs, and IIITs."
-                    />
-                    <FeatureCard
-                        icon={Terminal}
-                        title="Anonymous Rant"
-                        desc="Need to vent about the cafeteria food or that one professor? Go anonymous. We won't spill."
-                    />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                        {VR_COLLEGES.map((college) => (
+                            <VRCard
+                                key={college.name}
+                                college={college}
+                                isActive={selectedCollege?.name === college.name}
+                                onSelect={setSelectedCollege}
+                            />
+                        ))}
+                    </div>
+                    <div className="bg-surface border border-white/10 rounded-3xl overflow-hidden">
+                        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                            <div>
+                                <h3 className="text-xl font-black text-white">{selectedCollege?.name}</h3>
+                                <p className="text-xs text-gray-500">Swipe or drag inside the view</p>
+                            </div>
+                            <a
+                                href={`https://www.google.com/maps?q=${encodeURIComponent(selectedCollege?.query || '')}&output=embed`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs font-black bg-white/10 px-4 py-2 rounded-full hover:bg-white/20 transition-colors"
+                            >
+                                Open 360
+                            </a>
+                        </div>
+                        <div className="aspect-video bg-black/60">
+                            <iframe
+                                title={`${selectedCollege?.name} 360`}
+                                src={`https://www.google.com/maps?q=${encodeURIComponent(selectedCollege?.query || '')}&output=embed`}
+                                className="w-full h-full border-0"
+                                loading="lazy"
+                                referrerPolicy="no-referrer-when-downgrade"
+                            />
+                        </div>
+                    </div>
                 </div>
             </section>
 

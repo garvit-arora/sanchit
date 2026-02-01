@@ -10,6 +10,11 @@ import { AuthProvider } from './context/AuthContext';
 import AuthGuard from './components/AuthGuard';
 import Chat from './pages/Chat';
 import Tutor from './pages/Tutor';
+import StudyZone from './pages/StudyZone';
+import AIInterview from './pages/AIInterview';
+import CodingIDE from './pages/CodingIDE';
+import ResumeRoaster from './pages/ResumeRoaster';
+import FlashcardGenerator from './pages/FlashcardGenerator';
 
 import Reels from './pages/Reels';
 import Leaderboard from './pages/Leaderboard';
@@ -57,7 +62,12 @@ export default function App() {
                     <Route path="/forum" element={<Forum />} />
                     <Route path="/reels" element={<Reels />} />
                     <Route path="/chat" element={<Chat />} />
+                    <Route path="/study" element={<StudyZone />} />
+                    <Route path="/ai-interview" element={<AIInterview />} />
                     <Route path="/tutor" element={<Tutor />} />
+                    <Route path="/coding-ide" element={<CodingIDE />} />
+                    <Route path="/resume-roaster" element={<ResumeRoaster />} />
+                    <Route path="/flashcards" element={<FlashcardGenerator />} />
 
                     <Route path="/opportunities" element={<Opportunities />} />
                     <Route path="/hackathons" element={<Hackathons />} />

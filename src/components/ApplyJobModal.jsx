@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, Upload, CheckCircle, ArrowLeft } from 'lucide-react';
 
-export default function ApplyJobModal({ isOpen, onClose, job, onApply }) {
+export default function ApplyJobModal({ isOpen, onClose, job, onApply, onProceed, proceedLabel = "Proceed to Apply" }) {
     const [formData, setFormData] = useState({
         resumeLink: '',
         coverLetter: ''
@@ -80,10 +80,17 @@ export default function ApplyJobModal({ isOpen, onClose, job, onApply }) {
                         </div>
 
                         <button
-                            onClick={() => setView('form')}
+                            onClick={() => {
+                                if (onProceed) {
+                                    onProceed();
+                                    onClose();
+                                    return;
+                                }
+                                setView('form');
+                            }}
                             className="w-full bg-white text-black font-black py-4 rounded-2xl hover:bg-gray-200 transition-all hover:scale-[1.02] active:scale-95 shadow-xl"
                         >
-                            Proceed to Apply
+                            {proceedLabel}
                         </button>
                     </>
                 ) : (

@@ -22,8 +22,9 @@ export default function AuthGuard({ children }) {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    // Gate: Ensure user has completed basic profile setup (username)
-    if (currentUser && !userProfile?.username && location.pathname !== '/onboarding') {
+    // Gate: Ensure user has completed basic profile setup (username, campus, and skills)
+    // BYPASS: If offline, skip this check to allow access to cached pages (like Tutor)
+    if (navigator.onLine && currentUser && (!userProfile?.username || !userProfile?.campus || !userProfile?.skills || userProfile?.skills.length === 0) && location.pathname !== '/onboarding') {
         return <Navigate to="/onboarding" replace />;
     }
 
